@@ -22,15 +22,10 @@ All rights reserved.
 
 """
 
-from pylazybam.bam import *
 import sys
-import os
-import argparse, textwrap
-import subprocess
-import re
-from collections import Counter
-from copy import copy
 from typing import List, Tuple
+
+from pylazybam.bam import *
 
 __author__ = "Matthew Wakefield"
 __copyright__ = ("Copyright 2011-2020 Matthew Wakefield, "
@@ -206,11 +201,14 @@ def get_bamprimary_AS_XS(alignments: List[bytes],
                       XS_function= bam.get_XS,
                       ) -> Tuple[int,int] :
     #named bamprimary to distinguish from primary/secondary species alignment
-    """
+    """Get the AS and XS of the primary alignment
 
     Parameters
     ----------
-    alignments
+    alignments : List[bytes]
+        a list of binary format BAM alignments from the same read.
+        Should contain only forward or reverse reads and only one primary flag
+
     AS_function
         a function that accepts a BAM alignment bytestring and returns the AS
         score (alignment score) as an integer
@@ -222,6 +220,13 @@ def get_bamprimary_AS_XS(alignments: List[bytes],
 
     Returns
     -------
+    Tuple[int,int]
+        a tuple of the alignment score AS and suboptimal alignment score XS
+
+    Raises
+    ------
+    ValueError
+        raises value error if there is no primary or more than one primary flag
 
     """
     bamprimary = [a for a in alignments if not is_flag(a,FLAGS['secondary'])]
@@ -235,7 +240,44 @@ def get_bamprimary_AS_XS(alignments: List[bytes],
     elif len(bamprimary) == 0:
         raise ValueError("No primary alignments in alignment batch")
 
-def get_mapping_state(AS1,XS1,AS2,XS2, min_score=float('-inf')):
+
+def get_max_AS_XS(alignments: List[bytes],
+                  AS_function=bam.get_AS,
+                  XS_function=bam.get_XS,
+                  sort_key=None,
+                  ) -> Tuple[int, int]:
+    """Get the maximum AS and XS from a group of alignments
+
+    Parameters
+    ----------
+    alignments : List[bytes]
+        a list of binary format BAM alignments.
+
+    AS_function : Callable[[bytes], int]
+        a function that accepts a BAM alignment bytestring and returns the AS
+        score (alignment score) as an integer
+        eg pylazybam.bam.get_AS or
+
+    XS_function : Callable[[bytes], int]
+        a function that accepts a BAM alignment bytestring and returns the XS
+        score as an integer
+
+    sort_key : Callable[[Tuple[int,int]], Any]
+        a key function that converts tuples to items to be used by sorted()
+
+    Returns
+    -------
+    Tuple[int,int]
+        a tuple of the alignment score AS and suboptimal alignment score XS
+    """
+    if not alignments:
+        return (float('-inf'),float('-inf'))
+    scores = sorted([(AS_function(a),XS_function(a)) for a in alignments],
+                    key=sort_key)
+    return scores[-1]
+
+
+def get_mapping_state(AS1, XS1, AS2, XS2, min_score=float('-inf')):
     """Determine the mapping state based on scores in each species.
     Scores can be negative but better matches must have higher scores
     Arguments:
@@ -252,28 +294,123 @@ def get_mapping_state(AS1,XS1,AS2,XS2, min_score=float('-inf')):
                 'primary_multi', 'secondary_multi',
                 'unresolved', or 'unassigned' indicating match state.
     """
-    if AS1 <= min_score and  AS2 <= min_score:  #low quality mapping in both
+    if AS1 <= min_score and AS2 <= min_score:  # low quality mapping in both
         return 'unassigned'
-    elif AS1 > min_score and (AS2 <= min_score or AS1 > AS2): #maps in primary better than secondary
-        if not XS1 or AS1 > XS1:       #maps uniquely in primary better than secondary
+    elif AS1 > min_score and (AS2 <= min_score or AS1 > AS2):
+        # maps in primary better than secondary
+        if not XS1 or AS1 > XS1:
+            # maps uniquely in primary better than secondary
             return 'primary_specific'
-        else:            #multimaps in primary better than secondary
+        else:
+            # multimaps in primary better than secondary
             return 'primary_multi'
-    elif AS1 == AS2:                   #maps equally well in both
+    elif AS1 == AS2:  # maps equally well in both
         return 'unresolved'
-    elif AS2 > min_score and (AS1 <= min_score or AS2 > AS1): #maps in secondary better than primary
+    elif AS2 > min_score and (AS1 <= min_score or AS2 > AS1):
+        # maps in secondary better than primary
         if (not XS2) or AS2 > XS2:
             return 'secondary_specific'
         else:
-            return 'secondary_multi' #multimaps in secondary better than primary
-    else: raise RuntimeError('Error in processing logic with values {0} '.format((AS1,XS1,AS2,XS2))) # pragma: no cover
+            # multimaps in secondary better than primary
+            return 'secondary_multi'
+    else:
+        raise RuntimeError(
+            f"Error in processing logic with values {(AS1, XS1, AS2, XS2)}"
+        )
+
+
+class DummyFile():
+    """A dummy io class that does nothing"""
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def __repr__(self):
+        return "XenomapperDummyFile"
+
+    def __write__(self, data):
+        pass
+
+    def __close__(self):
+        pass
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self):
+        pass
+
+
+class XenomapperOutputWriter():
+    def __init__(self,
+                 primary_header,
+                 secondary_header,
+                 primary_specific=None,
+                 primary_multi=None,
+                 secondary_specific=None,
+                 secondary_multi=None,
+                 unresolved=None,
+                 unassigned=None,
+                 basename=None,
+                 ):
+        file_arguments = dict(list(locals().items())[3:9])
+
+        if basename == None:
+            self._fileobjects = {'unassigned': DummyFile(),
+                                'primary_specific': DummyFile(),
+                                'primary_multi': DummyFile(),
+                                'unresolved': DummyFile(),
+                                'secondary_specific': DummyFile(),
+                                'secondary_multi': DummyFile(),
+                                }
+            for key in file_arguments:
+                if file_arguments[key]:
+                    self._fileobjects[key] = bam.FileWriter(file_arguments[key])
+        else:
+            self._fileobjects = {}
+            for key in file_arguments:
+                self._fileobjects[key] = bam.FileWriter(f"{basename}_{key}")
+
+        self.write_headers(primary_header, secondary_header)
+
+    def write_headers(self, primary_header, secondary_header):
+        # write out the correct species header to all of the files
+        # use primary for unresolved and unassigned
+        # add @PO and @CO fields to the header
+        pass
+
+    def __getitem__(self, key):
+        return self._fileobjects[key]
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def close(self):
+        for fileobj in self._fileobjects:
+            self._fileobjects[fileobj].close()
+
+
+
+category_counts = {'unassigned': 0,
+                   'primary_specific': 0,
+                   'primary_multi': 0,
+                   'unresolved': 0,
+                   'secondary_specific': 0,
+                   'secondary_multi': 0,
+                   }
+
 
 def output_summary(category_counts, outfile=sys.stderr):
-    print('-'*80, file=outfile)
+    print('-' * 80, file=outfile)
     print('Read Count Category Summary\n', file=outfile)
-    print('|       {0:45s}|     {1:10s}  |'.format('Category','Count'), file=outfile)
-    print('|:','-'*50,':|:','-'*15,':|',sep='', file=outfile)
+    print('|       {0:45s}|     {1:10s}  |'.format('Category', 'Count'),
+          file=outfile)
+    print('|:', '-' * 50, ':|:', '-' * 15, ':|', sep='', file=outfile)
     for category in sorted(category_counts):
-        print('|  {0:50s}|{1:15d}  |'.format(str(category),category_counts[category]), file=outfile)
+        print('|  {0:50s}|{1:15d}  |'.format(str(category),
+                                             category_counts[category]),
+              file=outfile)
     print(file=outfile)
     pass

@@ -182,6 +182,22 @@ class test_main(unittest.TestCase):
         self.assertRaises(ValueError, get_bamprimary_AS_XS, [])
         self.assertEqual(get_bamprimary_AS_XS([BAMPAIR1[0],]),(198, 126))
 
+    def test_get_max_AS_XS(self):
+        self.assertEqual(get_max_AS_XS(BAMPAIR1),(198, 126))
+        self.assertEqual(get_max_AS_XS([]),(float('-inf'), float('-inf')))
+
+    def test_XenomapperOutputWriter(self):
+        xow = XenomapperOutputWriter("p","s")
+        self.assertEqual([repr(x) for x in list(xow._fileobjects.values())],
+                         [repr(DummyFile()),]*6)
+        #need to set up a tempfile dir
+        xow = XenomapperOutputWriter("p", "s", basename='foo')
+        self.assertEqual([x._handle.name for x in xow._fileobjects.values()],
+              ['foo_primary_specific', 'foo_primary_multi',
+               'foo_secondary_specific', 'foo_secondary_multi',
+               'foo_unresolved', 'foo_unassigned'])
+        xow.close()
+
     def test_get_mapping_state(self):
         inpt_and_outpt = [
                             ((200,199,199,198,float('-inf')),'primary_specific'),
