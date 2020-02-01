@@ -30,6 +30,7 @@ import subprocess
 import re
 from collections import Counter
 from copy import copy
+from typing import List, Tuple
 
 __author__ = "Matthew Wakefield"
 __copyright__ = ("Copyright 2011-2020 Matthew Wakefield, "
@@ -135,7 +136,104 @@ class AlignbatchFileReader(FileReader):
     def __next__(self):
         return next(self.alignment_batches)
 
+def get_cigarbased_score(cigar_string: str,
+                         NM: int,
+                         mismatch: int = -6,
+                         gap_open: int = -5,
+                         gap_extend: int = -3,
+                         softclip: int = -2) -> int:
+    """Return calculated values for a score equivalent to a
+    rescaled AS tag using the cigar line and NM tags from the
+    SAM entry.
+    Score is rescaled such that a perfect match for the full
+    length of the read acchieves a score of 0.0.
+    Penalties are: mismatch -6, gap open -5, gap extend -3,
+                   softclipped -2 (equiv to +2 match rescaled)
+    Arguments:
+        sam_line  - list of elements from a SAM file line
+        tag       - the name of the optional tag to be emulated
+                    Only AS tags will be calculated
+    Returns
+        tag_value - the calculated value of the AS score as a
+                    float or the return value of get_tag for
+                    all other values of tag
+    """
+    if NM == None:
+        return float('-inf') #either a multimapper or unmapped
+    mismatches = int(NM[0].split(':')[-1])
+    cigar = re.findall(r'([0-9]+)([MIDNSHPX=])',sam_line[5])
+    deletions = [int(x[0]) for x in cigar if x[1] == 'D']
+    insertions = [int(x[0]) for x in cigar if x[1] == 'I']
+    softclips = [int(x[0]) for x in cigar if x[1] == 'S']
+    score = (mismatch * mismatches) + (gap_open * (len(insertions) + len(deletions))) + (gap_extend * (sum(insertions) + sum(deletions))) + (softlip * sum(softclips))
+    return score
 
+def split_forward_reverse(alignments: List[bytes]
+                          ) -> Tuple[List[bytes], List[bytes]]:
+    """
+    Split a list of BAM alignments into forward and reverse
+
+    Parameters
+    ----------
+    alignments : List[bytes]
+        a list of BAM alignments in raw binary format containing forward
+        and optionally reverse alignments
+
+    Returns
+    -------
+    (List[bytes], List[bytes])
+        a tuple containing a list of forward and reverse BAM reads
+
+    Raises
+    ------
+    ValueError
+        if there are any reads that do not have the forward or reverse flag
+    """
+    forward = []
+    reverse = []
+    for align in alignments:
+        if is_flag(align, FLAGS['forward']):
+            forward.append(align)
+        elif is_flag(align, FLAGS['reverse']):
+            reverse.append(align)
+        else:
+            raise ValueError(f"The alignment {align} has neither the forward"
+                             "or the reverse flag set")
+    return (forward, reverse)
+
+def get_bamprimary_AS_XS(alignments: List[bytes],
+                      AS_function= bam.get_AS,
+                      XS_function= bam.get_XS,
+                      ) -> Tuple[int,int] :
+    #named bamprimary to distinguish from primary/secondary species alignment
+    """
+
+    Parameters
+    ----------
+    alignments
+    AS_function
+        a function that accepts a BAM alignment bytestring and returns the AS
+        score (alignment score) as an integer
+        eg pylazybam.bam.get_AS or
+
+    XS_function
+        a function that accepts a BAM alignment bytestring and returns the XS
+        score as an integer
+
+    Returns
+    -------
+
+    """
+    bamprimary = [a for a in alignments if not is_flag(a,FLAGS['secondary'])]
+    # We keep unmapped reads as this is an expected state in secondary species
+    if len(bamprimary) == 1:
+        AS = AS_function(bamprimary[0])
+        XS = XS_function(bamprimary[0])
+        return (AS,XS)
+    elif len(bamprimary) > 1:
+        raise ValueError("Multiple primary alignments in alignment batch")
+    elif len(bamprimary) == 0:
+        raise ValueError("No primary alignments in alignment batch")
 
 def get_mapping_state(AS1,XS1,AS2,XS2, min_score=float('-inf')):
     """Determine the mapping state based on scores in each species.

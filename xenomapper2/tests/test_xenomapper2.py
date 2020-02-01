@@ -7,11 +7,13 @@ Created by Matthew Wakefield on 2012-08-16.
 Copyright (c) 2011-2020 Matthew Wakefield and The Walter and Eliza Hall Institute. All rights reserved.
 """
 
+import gzip
+import io
 import unittest
-import sys, io, gzip
-from xenomapper2.xenomapper2 import *
-import hashlib
+
 from pkg_resources import resource_stream
+
+from xenomapper2.xenomapper2 import *
 
 __author__ = "Matthew Wakefield"
 __copyright__ = "Copyright 2011-2020 Matthew Wakefield, The Walter and Eliza Hall Institute and The University of Melbourne"
@@ -168,7 +170,18 @@ class test_main(unittest.TestCase):
     #     sam2.close()
     #     pass
 
-        
+    def test_split_forward_reverse(self):
+        expected = ([
+                            b'\x12\x01\x00\x00\x0c\x00\x00\x00eB\xf0\x07(&\n2\x02\x00S\x00d\x00\x00\x00\x0c\x00\x00\x00\x1eB\xf0\x07S\xff\xff\xffHWI-ST960:96:COTO3ACXX:3:1101:1220:2089\x000\x06\x00\x00\x14\x00\x00\x00HB\x18"$H\x14\x82"\x14(\x12\x88\x14AD(AD!D\x14\x11\x82B\x88A\x12"\x84AD!\x11D\x88B\x14\x84\x14"AA\x82\x12\x12!(\x12\x1f#"##!\x1f####""!!\x1e##$$$##$"#"%%\'\'\'\'\')((&\')))))))(\'(()((\'#!))))))))((()))(&\'\'))))())()(&))(\'\'%%\'%####\x1c\x10\x02ASC\xc6XSC~XNC\x00XMC\x00XOC\x00XGC\x00NMC\x00MDZ99\x00YSC\xbdYTZCP\x00'],
+                    [
+                            b'\x15\x01\x00\x00\x0c\x00\x00\x00\x1eB\xf0\x07(&\n2\x02\x00\xa3\x00d\x00\x00\x00\x0c\x00\x00\x00eB\xf0\x07\xad\x00\x00\x00HWI-ST960:96:COTO3ACXX:3:1101:1220:2089\x004\x00\x00\x00\x10\x06\x00\x00\xff\xf8\x82\x11\x11"\x14"\x84\x12!\x12\x18D\x84\x11\x12"\x84\x82\x82\x81(\x11\x11\x18\x12\x11\x11\x88\x14(DHHD\x84HB\x18"\x84H\x14\x82"\x14(\x12\x88\x02\x02\x02\x13\x13 #%\'&\'%\')()))))))))))))$&\'())))))()))()))()\'(\'\'(((\'))))()(()))"\'$$%### !##$#\x1e\x0c\x0c\x19\x1d ""###"##"\x1f""#ASC\xbdXSC2XNC\x00XMC\x01XOC\x00XGC\x00NMC\x01MDZ79C17\x00YSC\xc6YTZCP\x00'])
+        self.assertEqual(split_forward_reverse(BAMPAIR1), expected)
+
+    def test_get_bamprimary_AS_XS(self):
+        self.assertRaises(ValueError, get_bamprimary_AS_XS, BAMPAIR1)
+        self.assertRaises(ValueError, get_bamprimary_AS_XS, [])
+        self.assertEqual(get_bamprimary_AS_XS([BAMPAIR1[0],]),(198, 126))
+
     def test_get_mapping_state(self):
         inpt_and_outpt = [
                             ((200,199,199,198,float('-inf')),'primary_specific'),
