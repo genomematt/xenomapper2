@@ -153,14 +153,17 @@ def get_cigarbased_score(cigar_string: str,
                     float or the return value of get_tag for
                     all other values of tag
     """
-    if NM == None:
+    if cigar_string == '*' or NM == None:
         return float('-inf') #either a multimapper or unmapped
-    mismatches = int(NM[0].split(':')[-1])
-    cigar = re.findall(r'([0-9]+)([MIDNSHPX=])',sam_line[5])
+    mismatches = NM
+    cigar = re.findall(r'([0-9]+)([MIDNSHPX=])', cigar_string)
     deletions = [int(x[0]) for x in cigar if x[1] == 'D']
     insertions = [int(x[0]) for x in cigar if x[1] == 'I']
     softclips = [int(x[0]) for x in cigar if x[1] == 'S']
-    score = (mismatch * mismatches) + (gap_open * (len(insertions) + len(deletions))) + (gap_extend * (sum(insertions) + sum(deletions))) + (softlip * sum(softclips))
+    score = (mismatch * mismatches) + (
+            gap_open * (len(insertions) + len(deletions))) \
+            + (gap_extend * (sum(insertions) + sum(deletions))) \
+            + (softclip * sum(softclips))
     return score
 
 def split_forward_reverse(alignments: List[bytes]

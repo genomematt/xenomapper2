@@ -186,6 +186,19 @@ class test_main(unittest.TestCase):
         self.assertEqual(get_max_AS_XS(BAMPAIR1),(198, 126))
         self.assertEqual(get_max_AS_XS([]),(float('-inf'), float('-inf')))
 
+    def test_get_cigar_based_score(self):
+        input_and_output = [(('*', None), float('-inf')),
+                            (('50M',0),0),
+                            (('1S49M',0),-2),
+                            (('50M', 2), -12),
+                            (('10M1I39M', 0), -8),
+                            (('10M2D38M', 0), -11),
+                            (('10M1I10M1D28M', 0), -16),
+                            (('10M1234N40M', 0), 0),
+                            ]
+        for (inpt, outpt) in input_and_output:
+            self.assertEqual(get_cigarbased_score(*inpt), outpt)
+
     def test_XenomapperOutputWriter(self):
         xow = XenomapperOutputWriter("p","s")
         self.assertEqual([repr(x) for x in list(xow._fileobjects.values())],
