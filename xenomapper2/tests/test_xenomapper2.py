@@ -10,6 +10,7 @@ Copyright (c) 2011-2020 Matthew Wakefield and The Walter and Eliza Hall Institut
 import gzip
 import io
 import unittest
+from tempfile import TemporaryDirectory
 
 from pkg_resources import resource_stream
 
@@ -203,13 +204,19 @@ class test_main(unittest.TestCase):
         xow = XenomapperOutputWriter("p", "s")
         self.assertEqual([repr(x) for x in list(xow._fileobjects.values())],
                          [repr(DummyFile()), ] * 6)
-        # need to set up a tempfile dir
-        xow = XenomapperOutputWriter("p", "s", basename='foo')
+        tempd = TemporaryDirectory()
+        xow = XenomapperOutputWriter("p", "s",
+                                     basename=f'{tempd.name}foo')
+        expected = [f'{tempd.name}{f}' for f in ['foo_primary_specific',
+                                                 'foo_primary_multi',
+                                                 'foo_secondary_specific',
+                                                 'foo_secondary_multi',
+                                                 'foo_unresolved',
+                                                 'foo_unassigned']]
         self.assertEqual([x._handle.name for x in xow._fileobjects.values()],
-                         ['foo_primary_specific', 'foo_primary_multi',
-                          'foo_secondary_specific', 'foo_secondary_multi',
-                          'foo_unresolved', 'foo_unassigned'])
+                         expected)
         xow.close()
+        tempd.cleanup()
 
     def test_get_mapping_state(self):
         inpt_and_outpt = [
