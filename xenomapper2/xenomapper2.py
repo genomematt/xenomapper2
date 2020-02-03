@@ -411,15 +411,132 @@ class XenomapperOutputWriter():
             self._fileobjects[fileobj].close()
 
 
+def xenomap_states(primary_bam,
+                   secondary_bam,
+                   score_function: get_bamprimary_AS_XS,
+                   min_score=float('-inf'),
+                   ):
+    primary = AlignbatchFileReader(gzip.open(primary_bam))
+    secondary = AlignbatchFileReader(gzip.open(secondary_bam))
 
-category_counts = {'unassigned': 0,
-                   'primary_specific': 0,
-                   'primary_multi': 0,
-                   'unresolved': 0,
-                   'secondary_specific': 0,
-                   'secondary_multi': 0,
-                   }
+    for primary_aligns, secondary_aligns in zip(primary,secondary):
+        primary_name = get_raw_read_name(primary_aligns[0],
+                                         get_len_read_name(primary_aligns[0]))
+        secondary_name = get_raw_read_name(secondary_aligns[0],
+                                         get_len_read_name(secondary_aligns[0]))
+        if primary_name != secondary_name:
+            raise ValueError("Primary and secondary read names do not match: "
+                             f"{primary_name} != {secondary_name}")
+        prim_f_aligns, prim_r_aligns = split_forward_reverse(primary_aligns)
+        sec_f_aligns, sec_r_aligns = split_forward_reverse(secondary_aligns)
+        prim_f_AS, prim_f_XS = score_function(prim_f_aligns)
+        sec_f_AS, sec_f_XS = score_function(sec_f_aligns)
+        forward_state = get_mapping_state(prim_f_AS, prim_f_XS,
+                                          sec_f_AS, sec_f_XS,
+                                          min_score)
+        if not prim_r_aligns and not sec_r_aligns:
+            reverse_state = None
+        else:
+            prim_r_AS, prim_r_XS = score_function(prim_r_aligns)
+            sec_r_AS, sec_r_XS = score_function(sec_r_aligns)
+            reverse_state = get_mapping_state(prim_r_AS, prim_r_XS,
+                                              sec_r_AS, sec_r_XS,
+                                              min_score)
+        yield forward_state, reverse_state
 
+    if next(primary) or next(secondary):
+        raise ValueError("Number of unique reads in primary and secondary "
+                         "do not match. Check for file truncation")
+
+def state_map(forward_state, reverse_state):
+    # logic is directly copied from xenomapper 1.0
+    if reverse_state == None:
+        return forward_state
+    elif forward_state == 'primary_specific' or reverse_state == 'primary_specific':
+        return 'primary_specific'
+    elif forward_state == 'secondary_specific' or reverse_state == 'secondary_specific':
+        return 'secondary_specific'
+    elif forward_state == 'primary_multi' or reverse_state == 'primary_multi':
+        return 'primary_multi'
+    elif forward_state == 'secondary_multi' or reverse_state == 'secondary_multi':
+        return 'secondary_multi'
+    elif forward_state == 'unresolved' or reverse_state == 'unresolved':
+        return 'unresolved'
+    elif forward_state == 'unassigned' or reverse_state == 'unassigned':
+        return 'unassigned'
+    else:
+        raise ValueError(f'Unexpected states forward:{forward_state}'
+                         f'reverse:{reverse_state}')
+
+def conservative_state_map(forward_state, reverse_state):
+    # logic is directly copied from xenomapper 1.0
+    if reverse_state == None:
+        return forward_state
+    elif forward_state == 'unassigned' or reverse_state == 'unassigned':
+        return 'unassigned'
+    elif forward_state == 'unresolved' or reverse_state == 'unresolved' \
+            or (forward_state in ['primary_specific', 'primary_multi'] and \
+                reverse_state in ['secondary_specific', 'secondary_multi']) \
+            or (forward_state in ['secondary_specific', 'secondary_multi'] and \
+                reverse_state in ['primary_specific', 'primary_multi']):
+        return 'unresolved'
+    elif forward_state == 'primary_specific' or reverse_state == 'primary_specific':
+        return 'primary_specific'
+    elif forward_state == 'secondary_specific' or reverse_state == 'secondary_specific':
+        return 'secondary_specific'
+    elif forward_state == 'primary_multi' or reverse_state == 'primary_multi':
+        return 'primary_multi'
+    elif forward_state == 'secondary_multi' or reverse_state == 'secondary_multi':
+        return 'secondary_multi'
+    else:
+        raise ValueError(f'Unexpected states forward:{forward_state} '
+                         f'reverse:{reverse_state}')  # pragma: no cover
+
+def xenomap(primary_bam,
+                secondary_bam,
+                output_writer,
+                score_function: get_bamprimary_AS_XS,
+                min_score=float('-inf'),
+                conservative = False,
+                ):
+    """
+
+    Parameters
+    ----------
+    primary_bam
+    secondary_bam
+    output_writer
+    score_function
+    min_score
+    conservative
+
+    Returns
+    -------
+
+    """
+    category_pair_counts = Counter()
+    category_counts = { 'primary_specific' : 0,
+                        'secondary_specific' : 0,
+                        'primary_multi' : 0,
+                        'secondary_multi' : 0,
+                        'unresolved' : 0,
+                        'unassigned' : 0,
+                        }
+    for forward_state, reverse_state in xenomap_states(primary_bam,
+                                                  secondary_bam,
+                                                  score_function,
+                                                  min_score):
+        category_pair_counts[(forward_state, reverse_state)] += 1
+        if conservative:
+            category = conservative_state_map(forward_state, reverse_state)
+        else:
+            category = state_map(forward_state, reverse_state)
+        category_counts[category] += 1
+        if category in ['secondary_specific', 'secondary_multi']:
+            output_writer[category].write(secondary_bam)
+        else:
+            output_writer[category].write(primary_bam)
+    return category_pair_counts, category_counts
 
 def output_summary(category_counts, outfile=sys.stderr):
     print('-' * 80, file=outfile)
