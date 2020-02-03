@@ -10,7 +10,7 @@ Copyright (c) 2011-2020 Matthew Wakefield and The Walter and Eliza Hall Institut
 import gzip
 import io
 import unittest
-from tempfile import TemporaryDirectory
+from tempfile import TemporaryDirectory, NamedTemporaryFile
 
 from pkg_resources import resource_stream
 
@@ -218,6 +218,39 @@ class test_main(unittest.TestCase):
         xow.close()
         tempd.cleanup()
 
+    def test_XenomapperOutputWriter_round_trip(self):
+        test_bam = resource_stream(__name__, 'data/minitest.bam')
+        the_bam = bam.FileReader(gzip.open(test_bam))
+        out_file = NamedTemporaryFile(delete=False)
+        out_file_name = out_file.name
+        out_file.close()
+        xow = XenomapperOutputWriter("p", "s",
+                             primary_specific=out_file_name)
+        xow['primary_specific'].write(the_bam.magic)
+        xow['primary_specific'].write(the_bam.raw_header)
+        xow['primary_specific'].write(the_bam.raw_refs)
+        for align in the_bam:
+            xow['primary_specific'].write(align)
+        xow.close()
+        the_bam.close() # this should close test_bam and does below
+        test_bam.close() # this should not be needed but get ResourceWarning
+        # everything should be closed
+        # open original file again
+        retest_bam = resource_stream(__name__, 'data/minitest.bam')
+        the_bam = bam.FileReader(gzip.open(retest_bam))
+        # parse the new temporary file
+        new_bam = bam.FileReader(gzip.open(out_file_name))
+        self.assertEqual(the_bam.header,new_bam.header)
+        try:
+            while True:
+                align = next(new_bam)
+                align2 = next(the_bam)
+                self.assertEqual(align,align2)
+        except StopIteration:
+            pass
+        new_bam.close()
+        the_bam.close()
+
     def test_get_mapping_state(self):
         inpt_and_outpt = [
             ((200, 199, 199, 198, float('-inf')), 'primary_specific'),
@@ -232,14 +265,17 @@ class test_main(unittest.TestCase):
             ((199, 199, 200, 200, float('-inf')), 'secondary_multi'),
             ((9, 8, 8, 8, 10), 'unassigned'),
             ((200, 200, 200, 200, float('-inf')), 'unresolved'),
-            ((-6, float('-inf'), float('-inf'), float('-inf'), float('-inf')), 'primary_specific'),
-            ((float('-inf'), float('-inf'), -6, float('-inf'), float('-inf')), 'secondary_specific'),
-            ((-6, float('-inf'), -2, float('-inf'), float('-inf')), 'secondary_specific'),
-            ((0, float('-inf'), -2, float('-inf'), float('-inf')), 'primary_specific'),
-            ((-2, float('-inf'), 0, float('-inf'), float('-inf')), 'secondary_specific'),
-
-        ]
-
+            ((-6, float('-inf'), float('-inf'), float('-inf'), float('-inf')),
+             'primary_specific'),
+            ((float('-inf'), float('-inf'), -6, float('-inf'), float('-inf')),
+             'secondary_specific'),
+            ((-6, float('-inf'), -2, float('-inf'), float('-inf')),
+             'secondary_specific'),
+            ((0, float('-inf'), -2, float('-inf'), float('-inf')),
+             'primary_specific'),
+            ((-2, float('-inf'), 0, float('-inf'), float('-inf')),
+             'secondary_specific'),
+            ]
         for inpt, outpt in inpt_and_outpt:
             self.assertEqual(get_mapping_state(*inpt), outpt)
         pass
