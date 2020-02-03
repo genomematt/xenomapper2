@@ -144,14 +144,24 @@ def get_cigarbased_score(cigar_string: str,
     length of the read acchieves a score of 0.0.
     Penalties are: mismatch -6, gap open -5, gap extend -3,
                    softclipped -2 (equiv to +2 match rescaled)
-    Arguments:
-        sam_line  - list of elements from a SAM file line
-        tag       - the name of the optional tag to be emulated
-                    Only AS tags will be calculated
+    Parameters
+    ----------
+    cigar_string: str
+
+    NM: int
+
+    mismatch : int
+
+    gap_open : int
+
+    gap_extend : int
+
+    softclip : int
+
     Returns
-        tag_value - the calculated value of the AS score as a
-                    float or the return value of get_tag for
-                    all other values of tag
+    -------
+    int
+        The AS score calculated from the cigar string
     """
     if cigar_string == '*' or NM == None:
         return float('-inf') #either a multimapper or unmapped
@@ -330,11 +340,17 @@ class DummyFile():
     def __repr__(self):
         return "XenomapperDummyFile"
 
-    def __write__(self, data):
+    def write(self, data):
         pass
 
-    def __close__(self):
+    def close(self):
         pass
+
+    def writable(self):
+        return True
+
+    def seekable(self):
+        return False
 
     def __enter__(self):
         pass
