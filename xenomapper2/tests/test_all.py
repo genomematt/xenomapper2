@@ -3,7 +3,10 @@
 """
 xenomapper2/tests/test_all.py
 
-Copyright (c) 2018-2020 Matthew Wakefield, The Walter and Eliza Hall Institute and The University of Melbourne. All rights reserved.
+Copyright (c) 2011-2020 Matthew Wakefield
+The Walter and Eliza Hall Institute and
+The University of Melbourne.
+All rights reserved.
 """
 
 import unittest

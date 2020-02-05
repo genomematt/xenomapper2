@@ -17,13 +17,15 @@ from pkg_resources import resource_stream
 from xenomapper2.xenomapper2 import *
 
 __author__ = "Matthew Wakefield"
-__copyright__ = "Copyright 2011-2020 Matthew Wakefield, The Walter and Eliza Hall Institute and The University of Melbourne"
-__credits__ = ["Matthew Wakefield", ]
-__license__ = "GPLv3"
-__version__ = "2.0.0"
+__copyright__ = ("Copyright 2018-2020 Matthew Wakefield"
+                 "The Walter and Eliza Hall Institute and "
+                 "The University of Melbourne")
+__credits__ = ["Matthew Wakefield",]
+__license__ = "BSD-3-Clause"
+__version__ = "2.0a1"
 __maintainer__ = "Matthew Wakefield"
 __email__ = "wakefield@wehi.edu.au"
-__status__ = "Beta"
+__status__ = "Development/Beta"
 
 BAMPAIR1 = [
     b'\x12\x01\x00\x00\x0c\x00\x00\x00eB\xf0\x07(&\n2\x02\x00S\x00d\x00\x00\x00\x0c\x00\x00\x00\x1eB\xf0\x07S\xff\xff\xffHWI-ST960:96:COTO3ACXX:3:1101:1220:2089\x000\x06\x00\x00\x14\x00\x00\x00HB\x18"$H\x14\x82"\x14(\x12\x88\x14AD(AD!D\x14\x11\x82B\x88A\x12"\x84AD!\x11D\x88B\x14\x84\x14"AA\x82\x12\x12!(\x12\x1f#"##!\x1f####""!!\x1e##$$$##$"#"%%\'\'\'\'\')((&\')))))))(\'(()((\'#!))))))))((()))(&\'\'))))())()(&))(\'\'%%\'%####\x1c\x10\x02ASC\xc6XSC~XNC\x00XMC\x00XOC\x00XGC\x00NMC\x00MDZ99\x00YSC\xbdYTZCP\x00',

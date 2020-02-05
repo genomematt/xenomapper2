@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # encoding: utf-8
 """
-xenomapper.py
+xenomapper2.py
 
 A script for parsing pairs of BAM format files of reads mapped to two different
 genomes and returning BAM files containing only reads where no better mapping
@@ -28,15 +28,15 @@ from typing import List, Tuple
 from pylazybam.bam import *
 
 __author__ = "Matthew Wakefield"
-__copyright__ = ("Copyright 2011-2020 Matthew Wakefield, "
+__copyright__ = ("Copyright 2018-2020 Matthew Wakefield"
                  "The Walter and Eliza Hall Institute and "
                  "The University of Melbourne")
-__credits__ = ["Matthew Wakefield", ]
-__license__ = "GPL"
-__version__ = "2.0.0"
+__credits__ = ["Matthew Wakefield",]
+__license__ = "BSD-3-Clause"
+__version__ = "2.0a1"
 __maintainer__ = "Matthew Wakefield"
 __email__ = "wakefield@wehi.edu.au"
-__status__ = "Beta"
+__status__ = "Development/Beta"
 
 # get batches of read from each bam file
 # split into forward and reverse for each file
