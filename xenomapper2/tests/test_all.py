@@ -13,10 +13,12 @@ import unittest
 from xenomapper2.tests.test_xenomapper2 import *
 
 __author__ = "Matthew Wakefield"
-__copyright__ = "Copyright 2018-2020 Matthew Wakefield, The Walter and Eliza Hall Institute and The University of Melbourne"
+__copyright__ = ("Copyright 2011-2020 Matthew Wakefield"
+                 "The Walter and Eliza Hall Institute and "
+                 "The University of Melbourne")
 __credits__ = ["Matthew Wakefield",]
 __license__ = "BSD-3-Clause"
-__version__ = "2.0.0"
+__version__ = "2.0a1"
 __maintainer__ = "Matthew Wakefield"
 __email__ = "wakefield@wehi.edu.au"
 __status__ = "Development/Beta"

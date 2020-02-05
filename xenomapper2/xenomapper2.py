@@ -22,8 +22,10 @@ All rights reserved.
 
 """
 
-import sys
+import sys, gzip
 from typing import List, Tuple
+from collections import Counter
+from itertools import zip_longest
 
 from pylazybam.bam import *
 
@@ -38,14 +40,7 @@ __maintainer__ = "Matthew Wakefield"
 __email__ = "wakefield@wehi.edu.au"
 __status__ = "Development/Beta"
 
-# get batches of read from each bam file
-# split into forward and reverse for each file
-# get AS and XS score pairs for the reads for each file
-#   - option one max()
-#   - option two primary mapping score
-#   - option three determine AS from cigar string
-# Note: should act on full alignments so all data available to function
-
+MIN32INT: int = -2147483648
 
 class AlignbatchFileReader(FileReader):
     """A BAM file reader that iterates batches of reads with the same name
@@ -122,11 +117,14 @@ class AlignbatchFileReader(FileReader):
                     alignbatch = []
                 alignbatch.append(align)
                 previous_name = name
+            if alignbatch:
+                yield alignbatch
         except StopIteration:
             if alignbatch:
-                return alignbatch
+                yield alignbatch
+                raise
             else:
-                return
+                raise
 
     def __next__(self):
         return next(self.alignment_batches)
@@ -164,7 +162,7 @@ def get_cigarbased_score(cigar_string: str,
         The AS score calculated from the cigar string
     """
     if cigar_string == '*' or NM == None:
-        return float('-inf') #either a multimapper or unmapped
+        return MIN32INT #either a multimapper or unmapped
     mismatches = NM
     cigar = re.findall(r'([0-9]+)([MIDNSHPX=])', cigar_string)
     deletions = [int(x[0]) for x in cigar if x[1] == 'D']
@@ -175,6 +173,14 @@ def get_cigarbased_score(cigar_string: str,
             + (gap_extend * (sum(insertions) + sum(deletions))) \
             + (softclip * sum(softclips))
     return score
+
+def always_zero(*args,**kwargs):
+    """A function that returns zero for any combination of parameters"""
+    return 0
+
+def always_very_negative(*args,**kwargs):
+    """A function that returns zero for any combination of parameters"""
+    return MIN32INT
 
 def split_forward_reverse(alignments: List[bytes]
                           ) -> Tuple[List[bytes], List[bytes]]:
@@ -258,6 +264,7 @@ def get_max_AS_XS(alignments: List[bytes],
                   AS_function=bam.get_AS,
                   XS_function=bam.get_XS,
                   sort_key=None,
+                  default=MIN32INT,
                   ) -> Tuple[int, int]:
     """Get the maximum AS and XS from a group of alignments
 
@@ -284,13 +291,13 @@ def get_max_AS_XS(alignments: List[bytes],
         a tuple of the alignment score AS and suboptimal alignment score XS
     """
     if not alignments:
-        return (float('-inf'),float('-inf'))
+        return (default,default)
     scores = sorted([(AS_function(a),XS_function(a)) for a in alignments],
                     key=sort_key)
     return scores[-1]
 
 
-def get_mapping_state(AS1, XS1, AS2, XS2, min_score=float('-inf')):
+def get_mapping_state(AS1, XS1, AS2, XS2, min_score=MIN32INT):
     """Determine the mapping state based on scores in each species.
     Scores can be negative but better matches must have higher scores
     Arguments:
@@ -333,8 +340,11 @@ def get_mapping_state(AS1, XS1, AS2, XS2, min_score=float('-inf')):
 
 
 class DummyFile():
-    """A dummy io class that does nothing"""
+    """A dummy io class looks like pylazybam.bam.FileWriter that does nothing"""
     def __init__(self, *args, **kwargs):
+        self.raw_header = None
+        self.raw_refs = None
+        self.header_written = False
         pass
 
     def __repr__(self):
@@ -352,6 +362,18 @@ class DummyFile():
     def seekable(self):
         return False
 
+    def get_updated_header(self, *args, **kwargs):
+        pass
+
+    def update_header(self, *args, **kwargs):
+        pass
+
+    def update_header_length(self, *args, **kwargs):
+        pass
+
+    def write_header(self, *args, **kwargs):
+        pass
+
     def __enter__(self):
         pass
 
@@ -361,8 +383,10 @@ class DummyFile():
 
 class XenomapperOutputWriter():
     def __init__(self,
-                 primary_header,
-                 secondary_header,
+                 primary_raw_header,
+                 primary_raw_refs,
+                 secondary_raw_header,
+                 secondary_raw_refs,
                  primary_specific=None,
                  primary_multi=None,
                  secondary_specific=None,
@@ -370,8 +394,9 @@ class XenomapperOutputWriter():
                  unresolved=None,
                  unassigned=None,
                  basename=None,
+                 compresslevel=6
                  ):
-        file_arguments = dict(list(locals().items())[3:9])
+        file_arguments = dict(list(locals().items())[5:11])
 
         if basename == None:
             self._fileobjects = {'unassigned': DummyFile(),
@@ -383,19 +408,43 @@ class XenomapperOutputWriter():
                                 }
             for key in file_arguments:
                 if file_arguments[key]:
-                    self._fileobjects[key] = bam.FileWriter(file_arguments[key])
+                    self._fileobjects[key] = bam.FileWriter(file_arguments[key],
+                                                    compresslevel=compresslevel)
         else:
             self._fileobjects = {}
             for key in file_arguments:
-                self._fileobjects[key] = bam.FileWriter(f"{basename}_{key}")
+                self._fileobjects[key] = bam.FileWriter(f"{basename}_{key}",
+                                                    compresslevel=compresslevel)
 
-        self.write_headers(primary_header, secondary_header)
+        self.write_headers(primary_raw_header,
+                             primary_raw_refs,
+                             secondary_raw_header,
+                             secondary_raw_refs)
 
-    def write_headers(self, primary_header, secondary_header):
+
+    def write_headers(self, primary_raw_header,
+                             primary_raw_refs,
+                             secondary_raw_header,
+                             secondary_raw_refs):
         # write out the correct species header to all of the files
         # use primary for unresolved and unassigned
         # add @PO and @CO fields to the header
-        pass
+        for key in self._fileobjects:
+            if key in ['secondary_specific','secondary_multi']:
+                self._fileobjects[key].raw_header = secondary_raw_header
+                self._fileobjects[key].raw_refs = secondary_raw_refs
+            else:
+                self._fileobjects[key].raw_header = primary_raw_header
+                self._fileobjects[key].raw_refs = primary_raw_refs
+            self._fileobjects[key].update_header(id = 'xenomapper',
+                                                    program = 'xenomapper',
+                                                    version = __version__,
+                                                    description= key)
+            comment = f"@CO\tThis file contains alignments assigned as {key}\n"
+            self._fileobjects[key].raw_header += comment.encode('utf-8')
+            self._fileobjects[key].update_header_length()
+            self._fileobjects[key].write_header()
+
 
     def __getitem__(self, key):
         return self._fileobjects[key]
@@ -411,42 +460,46 @@ class XenomapperOutputWriter():
             self._fileobjects[fileobj].close()
 
 
-def xenomap_states(primary_bam,
-                   secondary_bam,
-                   score_function: get_bamprimary_AS_XS,
-                   min_score=float('-inf'),
+def xenomap_states(primary_aligns,
+                   secondary_aligns,
+                   score_function = get_bamprimary_AS_XS,
+                   AS_function = get_AS,
+                   XS_function = get_XS,
+                   min_score=MIN32INT,
                    ):
-    primary = AlignbatchFileReader(gzip.open(primary_bam))
-    secondary = AlignbatchFileReader(gzip.open(secondary_bam))
+    primary_name = get_raw_read_name(primary_aligns[0],
+                                     get_len_read_name(primary_aligns[0]))
+    secondary_name = get_raw_read_name(secondary_aligns[0],
+                                     get_len_read_name(secondary_aligns[0]))
+    if primary_name != secondary_name:
+        raise ValueError("Primary and secondary read names do not match: "
+                         f"{primary_name} != {secondary_name}")
+    prim_f_aligns, prim_r_aligns = split_forward_reverse(primary_aligns)
+    sec_f_aligns, sec_r_aligns = split_forward_reverse(secondary_aligns)
+    prim_f_AS, prim_f_XS = score_function(prim_f_aligns,
+                                          AS_function=AS_function,
+                                          XS_function=XS_function)
+    sec_f_AS, sec_f_XS = score_function(sec_f_aligns,
+                                        AS_function = AS_function,
+                                        XS_function = XS_function)
+    forward_state = get_mapping_state(prim_f_AS, prim_f_XS,
+                                      sec_f_AS, sec_f_XS,
+                                      min_score)
 
-    for primary_aligns, secondary_aligns in zip(primary,secondary):
-        primary_name = get_raw_read_name(primary_aligns[0],
-                                         get_len_read_name(primary_aligns[0]))
-        secondary_name = get_raw_read_name(secondary_aligns[0],
-                                         get_len_read_name(secondary_aligns[0]))
-        if primary_name != secondary_name:
-            raise ValueError("Primary and secondary read names do not match: "
-                             f"{primary_name} != {secondary_name}")
-        prim_f_aligns, prim_r_aligns = split_forward_reverse(primary_aligns)
-        sec_f_aligns, sec_r_aligns = split_forward_reverse(secondary_aligns)
-        prim_f_AS, prim_f_XS = score_function(prim_f_aligns)
-        sec_f_AS, sec_f_XS = score_function(sec_f_aligns)
-        forward_state = get_mapping_state(prim_f_AS, prim_f_XS,
-                                          sec_f_AS, sec_f_XS,
+    if not prim_r_aligns and not sec_r_aligns:
+        reverse_state = None
+    else:
+        prim_r_AS, prim_r_XS = score_function(prim_r_aligns,
+                                                AS_function = AS_function,
+                                                XS_function = XS_function)
+        sec_r_AS, sec_r_XS = score_function(sec_r_aligns,
+                                            AS_function = AS_function,
+                                            XS_function = XS_function)
+        reverse_state = get_mapping_state(prim_r_AS, prim_r_XS,
+                                          sec_r_AS, sec_r_XS,
                                           min_score)
-        if not prim_r_aligns and not sec_r_aligns:
-            reverse_state = None
-        else:
-            prim_r_AS, prim_r_XS = score_function(prim_r_aligns)
-            sec_r_AS, sec_r_XS = score_function(sec_r_aligns)
-            reverse_state = get_mapping_state(prim_r_AS, prim_r_XS,
-                                              sec_r_AS, sec_r_XS,
-                                              min_score)
-        yield forward_state, reverse_state
+    return forward_state, reverse_state
 
-    if next(primary) or next(secondary):
-        raise ValueError("Number of unique reads in primary and secondary "
-                         "do not match. Check for file truncation")
 
 def state_map(forward_state, reverse_state):
     # logic is directly copied from xenomapper 1.0
@@ -496,7 +549,9 @@ def xenomap(primary_bam,
                 secondary_bam,
                 output_writer,
                 score_function: get_bamprimary_AS_XS,
-                min_score=float('-inf'),
+                AS_function=get_AS,
+                XS_function=get_XS,
+                min_score=MIN32INT,
                 conservative = False,
                 ):
     """
@@ -512,7 +567,9 @@ def xenomap(primary_bam,
 
     Returns
     -------
-
+    category_pair_counts,
+    category_counts,
+    output_writer
     """
     category_pair_counts = Counter()
     category_counts = { 'primary_specific' : 0,
@@ -522,10 +579,26 @@ def xenomap(primary_bam,
                         'unresolved' : 0,
                         'unassigned' : 0,
                         }
-    for forward_state, reverse_state in xenomap_states(primary_bam,
-                                                  secondary_bam,
+    if primary_bam.sort_order == 'coordinate':
+        raise ValueError(f"{primary_bam._ubam.name} is coordinate sorted"
+                         "BAM files must be ordered by readname for xenomapper")
+
+    if secondary_bam.sort_order == 'coordinate':
+        raise ValueError(f"{secondary_bam._ubam.name} is coordinate sorted"
+                         "BAM files must be ordered by readname for xenomapper")
+
+
+    for primary_aligns, secondary_aligns in zip_longest(primary_bam,
+                                                        secondary_bam,
+                                                        fillvalue = None):
+        if primary_aligns == None or secondary_aligns == None:
+            raise ValueError("BAM files are unequal lengths")
+        forward_state, reverse_state = xenomap_states(primary_aligns,
+                                                  secondary_aligns,
                                                   score_function,
-                                                  min_score):
+                                                  AS_function=AS_function,
+                                                  XS_function=XS_function,
+                                                  min_score = min_score)
         category_pair_counts[(forward_state, reverse_state)] += 1
         if conservative:
             category = conservative_state_map(forward_state, reverse_state)
@@ -533,14 +606,19 @@ def xenomap(primary_bam,
             category = state_map(forward_state, reverse_state)
         category_counts[category] += 1
         if category in ['secondary_specific', 'secondary_multi']:
-            output_writer[category].write(secondary_bam)
+            for align in secondary_aligns:
+                output_writer[category].write(align)
         else:
-            output_writer[category].write(primary_bam)
-    return category_pair_counts, category_counts
+            for align in primary_aligns:
+                output_writer[category].write(align)
 
-def output_summary(category_counts, outfile=sys.stderr):
+    return category_pair_counts, category_counts, output_writer
+
+def output_summary(category_counts,
+                   title = 'Read Count Category Summary\n',
+                   outfile=sys.stderr):
     print('-' * 80, file=outfile)
-    print('Read Count Category Summary\n', file=outfile)
+    print(title, file=outfile)
     print('|       {0:45s}|     {1:10s}  |'.format('Category', 'Count'),
           file=outfile)
     print('|:', '-' * 50, ':|:', '-' * 15, ':|', sep='', file=outfile)
@@ -550,3 +628,4 @@ def output_summary(category_counts, outfile=sys.stderr):
               file=outfile)
     print(file=outfile)
     pass
+

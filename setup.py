@@ -18,7 +18,7 @@ setup(
     url='https://git@bitbucket.org/genomematt/xenomapper2.git',
     license='BSD',
     entry_points={
-        'console_scripts': ['xenomapper2 = pylazybam.cli:main',
+        'console_scripts': ['xenomapper_classic = xenomapper2.old_cli:main',
                            ]
     },
     test_suite = "xenomapper2.tests.test_all",

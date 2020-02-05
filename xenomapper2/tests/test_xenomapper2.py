@@ -39,140 +39,6 @@ class test_main(unittest.TestCase):
     def setUp(self):
         pass
 
-    # def test_process_headers(self):
-    #     test_primary_specific_outfile = io.StringIO()
-    #     test_secondary_specific_outfile = io.StringIO()
-    #     test_primary_multi_outfile = io.StringIO()
-    #     test_secondary_multi_outfile = io.StringIO()
-    #     test_unassigned_outfile = io.StringIO()
-    #     test_unresolved_outfile = io.StringIO()
-    #     sam1 = io.TextIOWrapper(resource_stream(__name__, 'data/paired_end_testdata_human.sam'))
-    #     sam2 = io.TextIOWrapper(resource_stream(__name__, 'data/paired_end_testdata_mouse.sam'))
-    #     process_headers(sam1,sam2,
-    #                  primary_specific=test_primary_specific_outfile,
-    #                  secondary_specific=test_secondary_specific_outfile,
-    #                  primary_multi=test_primary_multi_outfile,
-    #                  secondary_multi=test_secondary_multi_outfile,
-    #                  unresolved=test_unresolved_outfile,
-    #                  unassigned=test_unassigned_outfile,
-    #                  )
-    #     self.assertEqual(len(test_primary_specific_outfile.getvalue()),695)
-    #     self.assertEqual(len(test_secondary_specific_outfile.getvalue()),629)
-    #     self.assertEqual(len(test_primary_multi_outfile.getvalue()),708)
-    #     self.assertEqual(len(test_secondary_multi_outfile.getvalue()),642)
-    #     self.assertEqual(len(test_unassigned_outfile.getvalue()),705)
-    #     self.assertEqual(len(test_unresolved_outfile.getvalue()),705)
-    #     sam1.close()
-    #     sam2.close()
-    #     pass
-    #
-    # def test_consistent_output_SE(self):
-    #     test_primary_specific_outfile = io.StringIO()
-    #     test_secondary_specific_outfile = io.StringIO()
-    #     test_primary_multi_outfile = io.StringIO()
-    #     test_secondary_multi_outfile = io.StringIO()
-    #     test_unassigned_outfile = io.StringIO()
-    #     test_unresolved_outfile = io.StringIO()
-    #     sam1 = io.TextIOWrapper(resource_stream(__name__, 'data/test_human_in.sam'))
-    #     sam2 = io.TextIOWrapper(resource_stream(__name__, 'data/test_mouse_in.sam'))
-    #     process_headers(sam1,sam2,
-    #                      primary_specific=test_primary_specific_outfile,
-    #                      secondary_specific=test_secondary_specific_outfile,
-    #                      primary_multi=test_primary_multi_outfile,
-    #                      secondary_multi=test_secondary_multi_outfile,
-    #                      unresolved=test_unresolved_outfile,
-    #                      unassigned=test_unassigned_outfile,
-    #                      )
-    #     cat_counts = main_single_end(getReadPairs(sam1,sam2),
-    #                      primary_specific=test_primary_specific_outfile,
-    #                      secondary_specific=test_secondary_specific_outfile,
-    #                      primary_multi=test_primary_multi_outfile,
-    #                      secondary_multi=test_secondary_multi_outfile,
-    #                      unresolved=test_unresolved_outfile,
-    #                      unassigned=test_unassigned_outfile,
-    #                      )
-    #     self.assertEqual(cat_counts['primary_specific'],
-    #                      len(test_primary_specific_outfile.getvalue().split('\n'))-4) #29 lines of header in this file
-    #     self.assertEqual(cat_counts['primary_multi'],
-    #                      len(test_primary_multi_outfile.getvalue().split('\n'))-4) #29 lines of header in this file
-    #     self.assertEqual(cat_counts['secondary_specific'],
-    #                      len(test_secondary_specific_outfile.getvalue().split('\n'))-4) #26 lines of header in this file
-    #     self.assertEqual(cat_counts['secondary_multi'],
-    #                      len(test_secondary_multi_outfile.getvalue().split('\n'))-4) #26 lines of header in this file
-    #     self.assertEqual(cat_counts['unassigned'],
-    #                      len(test_unassigned_outfile.getvalue().split('\n'))-4) #26 lines of header in this file
-    #     self.assertEqual(cat_counts['unassigned'],
-    #                      len(test_unassigned_outfile.getvalue().split('\n'))-4) #26 lines of header in this file
-    #     self.assertEqual(hashlib.sha224(test_primary_specific_outfile.getvalue().encode('latin-1')).hexdigest(),'381325b12dd9a9cd3afdd72eeb16b23cc92ddd16f675bb21bb21e08e')
-    #     sam1.close()
-    #     sam2.close()
-    #     pass
-    #
-    # def test_consistent_output_PE(self):
-    #     test_primary_specific_outfile = io.StringIO()
-    #     test_secondary_specific_outfile = io.StringIO()
-    #     test_primary_multi_outfile = io.StringIO()
-    #     test_secondary_multi_outfile = io.StringIO()
-    #     test_unassigned_outfile = io.StringIO()
-    #     test_unresolved_outfile = io.StringIO()
-    #     sam1 = io.TextIOWrapper(resource_stream(__name__, 'data/paired_end_testdata_human.sam'))
-    #     sam2 = io.TextIOWrapper(resource_stream(__name__, 'data/paired_end_testdata_mouse.sam'))
-    #     process_headers(sam1,sam2,primary_specific=test_primary_specific_outfile, secondary_specific=test_secondary_specific_outfile)
-    #     cat_counts = main_paired_end(getReadPairs(sam1,sam2),
-    #                                  primary_specific=test_primary_specific_outfile,
-    #                                  secondary_specific=test_secondary_specific_outfile,
-    #                                  primary_multi=test_primary_multi_outfile,
-    #                                  secondary_multi=test_secondary_multi_outfile,
-    #                                  unresolved=test_unresolved_outfile,
-    #                                  unassigned=test_unassigned_outfile,
-    #                                  )
-    #     self.assertEqual(sum([cat_counts[x] for x in cat_counts if 'primary_specific' in x])*2,
-    #                      len(test_primary_specific_outfile.getvalue().split('\n'))-30) #29 lines of header in this file
-    #     self.assertEqual(sum([cat_counts[x] for x in cat_counts if 'secondary_specific' in x and not 'primary_specific' in x])*2,
-    #                      len(test_secondary_specific_outfile.getvalue().split('\n'))-27) #26 lines of header in this file
-    #     self.assertEqual(sum([cat_counts[x] for x in cat_counts if 'primary_multi' in x and not 'primary_specific' in x and not 'secondary_specific' in x])*2,
-    #                     len(test_primary_multi_outfile.getvalue().split('\n'))-1)
-    #     self.assertEqual(sum([cat_counts[x] for x in cat_counts if 'secondary_multi' in x \
-    #                     and not 'primary_multi' in x and not 'primary_specific' in x and not 'secondary_specific' in x])*2,
-    #                     len(test_secondary_multi_outfile.getvalue().split('\n'))-1)
-    #     self.assertEqual(hashlib.sha224(test_primary_specific_outfile.getvalue().encode('latin-1')).hexdigest(),'64c0e24bf141c5aa3bb0993c73b34cdfe630a504ac424843f746918d')
-    #     sam1.close()
-    #     sam2.close()
-    #     pass
-    #
-    # def test_consistent_output_conservative_PE(self):
-    #     test_primary_specific_outfile = io.StringIO()
-    #     test_secondary_specific_outfile = io.StringIO()
-    #     test_primary_multi_outfile = io.StringIO()
-    #     test_secondary_multi_outfile = io.StringIO()
-    #     test_unassigned_outfile = io.StringIO()
-    #     test_unresolved_outfile = io.StringIO()
-    #     sam1 = io.TextIOWrapper(resource_stream(__name__, 'data/paired_end_testdata_human.sam'))
-    #     sam2 = io.TextIOWrapper(resource_stream(__name__, 'data/paired_end_testdata_mouse.sam'))
-    #     process_headers(sam1,sam2,primary_specific=test_primary_specific_outfile, secondary_specific=test_secondary_specific_outfile)
-    #     cat_counts = conservative_main_paired_end(getReadPairs(sam1,sam2),
-    #                                              primary_specific=test_primary_specific_outfile,
-    #                                              secondary_specific=test_secondary_specific_outfile,
-    #                                              primary_multi=test_primary_multi_outfile,
-    #                                              secondary_multi=test_secondary_multi_outfile,
-    #                                              unresolved=test_unresolved_outfile,
-    #                                              unassigned=test_unassigned_outfile,
-    #                                              )
-    #     self.assertEqual(cat_counts[('primary_specific', 'secondary_specific')]*4 +\
-    #                      cat_counts[('unresolved', 'unresolved')]*4, len(test_unresolved_outfile.getvalue().split('\n'))-1) #this test is not exhastive. Only states in test data
-    #     self.assertEqual(cat_counts[('primary_multi', 'primary_multi')]*2, len(test_primary_multi_outfile.getvalue().split('\n'))-1)
-    #     self.assertEqual(cat_counts[('secondary_multi', 'secondary_multi')]*2, len(test_secondary_multi_outfile.getvalue().split('\n'))-1)
-    #     self.assertEqual(cat_counts[('primary_specific', 'primary_specific')]*2 + cat_counts[('primary_specific', 'primary_multi')]*2 + cat_counts[('primary_multi', 'primary_specific')]*2,
-    #                      len(test_primary_specific_outfile.getvalue().split('\n'))-30) #29 lines of header in this file
-    #     self.assertEqual(cat_counts[('secondary_specific', 'secondary_specific')]*2 + cat_counts[('secondary_specific', 'secondary_multi')]*2 + cat_counts[('secondary_multi', 'secondary_specific')]*2,
-    #                      len(test_secondary_specific_outfile.getvalue().split('\n'))-27)  #26 lines of header in this file
-    #     self.assertEqual(cat_counts[('unassigned', 'unassigned')]*2, len(test_unassigned_outfile.getvalue().split('\n'))-1)
-    #
-    #     self.assertEqual(hashlib.sha224(test_primary_specific_outfile.getvalue().encode('latin-1')).hexdigest(),'c4de3de755092c8f9ff1eb2cd360a502d74ebd4c1e65ed282515ed3e')
-    #     sam1.close()
-    #     sam2.close()
-    #     pass
-
     def test_split_forward_reverse(self):
         expected = ([
                         b'\x12\x01\x00\x00\x0c\x00\x00\x00eB\xf0\x07(&\n2\x02\x00S\x00d\x00\x00\x00\x0c\x00\x00\x00\x1eB\xf0\x07S\xff\xff\xffHWI-ST960:96:COTO3ACXX:3:1101:1220:2089\x000\x06\x00\x00\x14\x00\x00\x00HB\x18"$H\x14\x82"\x14(\x12\x88\x14AD(AD!D\x14\x11\x82B\x88A\x12"\x84AD!\x11D\x88B\x14\x84\x14"AA\x82\x12\x12!(\x12\x1f#"##!\x1f####""!!\x1e##$$$##$"#"%%\'\'\'\'\')((&\')))))))(\'(()((\'#!))))))))((()))(&\'\'))))())()(&))(\'\'%%\'%####\x1c\x10\x02ASC\xc6XSC~XNC\x00XMC\x00XOC\x00XGC\x00NMC\x00MDZ99\x00YSC\xbdYTZCP\x00'],
@@ -187,10 +53,10 @@ class test_main(unittest.TestCase):
 
     def test_get_max_AS_XS(self):
         self.assertEqual(get_max_AS_XS(BAMPAIR1), (198, 126))
-        self.assertEqual(get_max_AS_XS([]), (float('-inf'), float('-inf')))
+        self.assertEqual(get_max_AS_XS([]), (-2147483648, -2147483648))
 
     def test_get_cigar_based_score(self):
-        input_and_output = [(('*', None), float('-inf')),
+        input_and_output = [(('*', None), -2147483648),
                             (('50M',0),0),
                             (('1S49M',0),-2),
                             (('50M', 2), -12),
@@ -203,11 +69,11 @@ class test_main(unittest.TestCase):
             self.assertEqual(get_cigarbased_score(*inpt), outpt)
 
     def test_XenomapperOutputWriter(self):
-        xow = XenomapperOutputWriter("p", "s")
+        xow = XenomapperOutputWriter(b"p", b"pr", b"s", b"sr")
         self.assertEqual([repr(x) for x in list(xow._fileobjects.values())],
                          [repr(DummyFile()), ] * 6)
         tempd = TemporaryDirectory()
-        xow = XenomapperOutputWriter("p", "s",
+        xow = XenomapperOutputWriter(b"p", b"s", b"s", b"sr",
                                      basename=f'{tempd.name}foo')
         expected = [f'{tempd.name}{f}' for f in ['foo_primary_specific',
                                                  'foo_primary_multi',
@@ -215,7 +81,7 @@ class test_main(unittest.TestCase):
                                                  'foo_secondary_multi',
                                                  'foo_unresolved',
                                                  'foo_unassigned']]
-        self.assertEqual([x._handle.name for x in xow._fileobjects.values()],
+        self.assertEqual([x.name for x in xow._fileobjects.values()],
                          expected)
         xow.close()
         tempd.cleanup()
@@ -226,11 +92,11 @@ class test_main(unittest.TestCase):
         out_file = NamedTemporaryFile(delete=False)
         out_file_name = out_file.name
         out_file.close()
-        xow = XenomapperOutputWriter("p", "s",
-                             primary_specific=out_file_name)
-        xow['primary_specific'].write(the_bam.magic)
-        xow['primary_specific'].write(the_bam.raw_header)
-        xow['primary_specific'].write(the_bam.raw_refs)
+        xow = XenomapperOutputWriter(the_bam.raw_header,
+                                     the_bam.raw_refs,
+                                     the_bam.raw_header,
+                                     the_bam.raw_refs,
+                                     primary_specific=out_file_name)
         for align in the_bam:
             xow['primary_specific'].write(align)
         xow.close()
@@ -242,71 +108,45 @@ class test_main(unittest.TestCase):
         the_bam = bam.FileReader(gzip.open(retest_bam))
         # parse the new temporary file
         new_bam = bam.FileReader(gzip.open(out_file_name))
-        self.assertEqual(the_bam.header,new_bam.header)
+        self.assertEqual(the_bam.header,new_bam.header[:86])
         try:
-            while True:
-                align = next(new_bam)
-                align2 = next(the_bam)
-                self.assertEqual(align,align2)
+            for align1,align2 in zip(new_bam,the_bam):
+                self.assertEqual(align1,align2)
         except StopIteration:
             pass
         new_bam.close()
         the_bam.close()
 
     def test_get_mapping_state(self):
+        very_negative = -2147483648
         inpt_and_outpt = [
-            ((200, 199, 199, 198, float('-inf')), 'primary_specific'),
-            ((200, 200, 199, 198, float('-inf')), 'primary_multi'),
-            ((199, 198, 200, 198, float('-inf')), 'secondary_specific'),
-            ((199, 198, 200, 200, float('-inf')), 'secondary_multi'),
-            ((float('-inf'), float('-inf'), float('-inf'), float('-inf'), float('-inf')), 'unassigned'),
-            ((200, 199, 200, 198, float('-inf')), 'unresolved'),
-            ((200, 199, 199, 199, float('-inf')), 'primary_specific'),
-            ((200, 200, 199, 199, float('-inf')), 'primary_multi'),
-            ((199, 199, 200, 199, float('-inf')), 'secondary_specific'),
-            ((199, 199, 200, 200, float('-inf')), 'secondary_multi'),
+            ((200, 199, 199, 198, very_negative), 'primary_specific'),
+            ((200, 200, 199, 198, very_negative), 'primary_multi'),
+            ((199, 198, 200, 198, very_negative), 'secondary_specific'),
+            ((199, 198, 200, 200, very_negative), 'secondary_multi'),
+            ((very_negative, very_negative, very_negative,
+              very_negative, very_negative), 'unassigned'),
+            ((200, 199, 200, 198, very_negative), 'unresolved'),
+            ((200, 199, 199, 199, very_negative), 'primary_specific'),
+            ((200, 200, 199, 199, very_negative), 'primary_multi'),
+            ((199, 199, 200, 199, very_negative), 'secondary_specific'),
+            ((199, 199, 200, 200, very_negative), 'secondary_multi'),
             ((9, 8, 8, 8, 10), 'unassigned'),
-            ((200, 200, 200, 200, float('-inf')), 'unresolved'),
-            ((-6, float('-inf'), float('-inf'), float('-inf'), float('-inf')),
+            ((200, 200, 200, 200, very_negative), 'unresolved'),
+            ((-6, very_negative, very_negative, very_negative, very_negative),
              'primary_specific'),
-            ((float('-inf'), float('-inf'), -6, float('-inf'), float('-inf')),
+            ((very_negative, very_negative, -6, very_negative, very_negative),
              'secondary_specific'),
-            ((-6, float('-inf'), -2, float('-inf'), float('-inf')),
+            ((-6, very_negative, -2, very_negative, very_negative),
              'secondary_specific'),
-            ((0, float('-inf'), -2, float('-inf'), float('-inf')),
+            ((0, very_negative, -2, very_negative, very_negative),
              'primary_specific'),
-            ((-2, float('-inf'), 0, float('-inf'), float('-inf')),
+            ((-2, very_negative, 0, very_negative, very_negative),
              'secondary_specific'),
             ]
         for inpt, outpt in inpt_and_outpt:
             self.assertEqual(get_mapping_state(*inpt), outpt)
         pass
-
-    # def test_get_tag(self):
-    #     inpt_and_outpt = [
-    #                     ((['HWI-ST960:63:D0CYJACXX:4:1101:21264:2228', '4', '*', '0', '0', '*', '*', '0', '0', 'TGGTAGTATTGGTTATGGTTCATTGTCCGGAGAGTATATTGTTGAAGAGG', 'BBCBDFDDHHHGFHHIIIIIJIJJJIGJJJGIAF:CFEGHGGHEEEG@HI', 'YT:Z:UU'],'AS'),
-    #                     float('-inf')),
-    #                     ((['', '', '', '', '', '50M', '', '', '', '', '', 'NM:i:0', 'AS:i:101', 'XS:i:99'],'AS'),101),
-    #                     ((['', '', '', '', '', '50M', '', '', '', '', '', 'NM:i:0', 'AS:i:100', 'XS:i:99'],'XS'),99),
-    #                     ((['', '', '', '', '', '50M', '', '', '', '', '', 'NM:i:0', 'AS:i:100', 'XS:i:99'],'NM'),0),
-    #                     ]
-    #     for inpt, outpt in inpt_and_outpt:
-    #         self.assertEqual(get_tag(*inpt),outpt)
-    #     pass
-    #
-    # def test_get_tag_with_ZS_as_XS(self):
-    #     inpt_and_outpt = [
-    #                     ((['HWI-ST960:63:D0CYJACXX:4:1101:21264:2228', '4', '*', '0', '0', '*', '*', '0', '0', 'TGGTAGTATTGGTTATGGTTCATTGTCCGGAGAGTATATTGTTGAAGAGG', 'BBCBDFDDHHHGFHHIIIIIJIJJJIGJJJGIAF:CFEGHGGHEEEG@HI', 'YT:Z:UU'],'AS'),
-    #                     float('-inf')),
-    #                     ((['', '', '', '', '', '50M', '', '', '', '', '', 'NM:i:0', 'AS:i:101', 'XS:A:+', 'ZS:i:99'],'AS'),101),
-    #                     ((['', '', '', '', '', '50M', '', '', '', '', '', 'NM:i:0', 'AS:i:100', 'XS:A:+', 'ZS:i:99'],'XS'),99),
-    #                     ((['', '', '', '', '', '50M', '', '', '', '', '', 'NM:i:0', 'AS:i:100', 'XS:A:+', 'ZS:i:99'],'NM'),0),
-    #                     ]
-    #     for inpt, outpt in inpt_and_outpt:
-    #         self.assertEqual(get_tag_with_ZS_as_XS(*inpt),outpt)
-    #     pass
-    #
-
 
 def test_output_summary(self):
     test_outfile = io.StringIO()
@@ -319,7 +159,6 @@ def test_output_summary(self):
     output_summary({'foo': 1, 'bar': 101}, outfile=test_outfile)
     self.assertEqual(test_outfile.getvalue(), canned_output)
     pass
-
 
 def test_AlignbatchFileReader(self):
     test_bam = resource_stream(__name__, 'data/paired_end_testdata_human.bam')
