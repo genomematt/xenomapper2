@@ -19,6 +19,7 @@ setup(
     license='BSD',
     entry_points={
         'console_scripts': ['xenomapper_classic = xenomapper2.old_cli:main',
+                            'xenomapper2 = xenomapper2.cli:main',
                            ]
     },
     test_suite = "xenomapper2.tests.test_all",
