@@ -394,6 +394,7 @@ class XenomapperOutputWriter():
                  unresolved=None,
                  unassigned=None,
                  basename=None,
+                 cmdline='',
                  compresslevel=6
                  ):
         file_arguments = dict(list(locals().items())[5:11])
@@ -419,13 +420,15 @@ class XenomapperOutputWriter():
         self.write_headers(primary_raw_header,
                              primary_raw_refs,
                              secondary_raw_header,
-                             secondary_raw_refs)
+                             secondary_raw_refs,
+                             cmdline=cmdline)
 
 
     def write_headers(self, primary_raw_header,
                              primary_raw_refs,
                              secondary_raw_header,
-                             secondary_raw_refs):
+                             secondary_raw_refs,
+                             cmdline=''):
         # write out the correct species header to all of the files
         # use primary for unresolved and unassigned
         # add @PO and @CO fields to the header
@@ -439,7 +442,8 @@ class XenomapperOutputWriter():
             self._fileobjects[key].update_header(id = 'xenomapper',
                                                     program = 'xenomapper',
                                                     version = __version__,
-                                                    description= key)
+                                                    description= key,
+                                                    command=cmdline,)
             comment = f"@CO\tThis file contains alignments assigned as {key}\n"
             self._fileobjects[key].raw_header += comment.encode('utf-8')
             self._fileobjects[key].update_header_length()
