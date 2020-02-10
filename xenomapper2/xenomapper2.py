@@ -618,12 +618,18 @@ def output_summary(category_counts,
                    title = 'Read Count Category Summary\n',
                    outfile=sys.stderr):
     print('-' * 80, file=outfile)
+    print(file=outfile)
     print(title, file=outfile)
+    print(file=outfile)
     print('|       {0:45s}|     {1:10s}  |'.format('Category', 'Count'),
           file=outfile)
     print('|:', '-' * 50, ':|:', '-' * 15, ':|', sep='', file=outfile)
     for category in sorted(category_counts):
-        print('|  {0:50s}|{1:15d}  |'.format(str(category),
+        if type(category) != str:
+            category_name = ' & '.join(category)
+        else:
+            category_name = category
+        print('|  {0:50s}|{1:15d}  |'.format(category_name,
                                              category_counts[category]),
               file=outfile)
     print(file=outfile)
