@@ -22,11 +22,12 @@ All rights reserved.
 
 
 Usage:
-  xenomapper2 --primary==<file>  --secondary==<file>
+  xenomapper2 --primary=<file>  --secondary=<file>
               [ --primary-specific=<file> --primary-multi=<file>
 .              --secondary-specific=<file> --secondary-multi=<file>
 .              --unassigned=<file> --unresolved=<file>
               | --basename=<str> ]
+              [ --min-score=<int> ]
               [ --zs | --cigar]
               [ --max ]
               [ --conservative ]
@@ -52,6 +53,8 @@ Options:
                              only valid if no other output options provided
 
   Processing options
+  --min-score=<int>          minimum AS score required. Lower scores unassigned.
+                             [ Default : None (implemented as -2^31) ]
   --zs                       use ZS scores for spliced aligner (HISAT2)
   --cigar                    use cigar scores to calculate AS score
   --max                      use the maximum score for any alignment
@@ -117,6 +120,11 @@ def main():
     else:
         score_function = get_bamprimary_AS_XS
 
+    if args["--min-score"]:
+        min_score = int(args["--min-score"])
+    else:
+        min_score = MIN32INT
+
     primary_bam = AlignbatchFileReader(gzip.open(args["--primary"]))
     primary_header = primary_bam.raw_header
     primary_refs = primary_bam.raw_refs
@@ -150,7 +158,7 @@ def main():
                                           score_function=score_function,
                                           AS_function=AS_function,
                                           XS_function=XS_function,
-                                          min_score=MIN32INT,
+                                          min_score=min_score,
                                           conservative=args["--conservative"],
                                           )
 
