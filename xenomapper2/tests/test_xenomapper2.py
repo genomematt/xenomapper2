@@ -10,11 +10,18 @@ Copyright (c) 2011-2020 Matthew Wakefield and The Walter and Eliza Hall Institut
 import gzip
 import io
 import unittest
+import warnings
 from tempfile import TemporaryDirectory, NamedTemporaryFile
+from hashlib import sha256
+from itertools import combinations, permutations
 
-from pkg_resources import resource_stream
+from pkg_resources import resource_stream, resource_filename
+import docopt
+
 
 from xenomapper2.xenomapper2 import *
+from xenomapper2 import cli
+
 
 __author__ = "Matthew Wakefield"
 __copyright__ = ("Copyright 2018-2020 Matthew Wakefield"
@@ -34,10 +41,15 @@ BAMPAIR42 = [
     b'\x1a\x01\x00\x00\t\x00\x00\x00\xd1B\xd2\x07(,\x921\x04\x00c\x00d\x00\x00\x00\t\x00\x00\x00%D\xd2\x07\xb9\x01\x00\x00HWI-ST960:96:COTO3ACXX:3:1101:1591:2148\x00\x14\x00\x00\x00\xe0\x02\x00\x00\x11\x00\x00\x00@\x03\x00\x00\xf1\x88"\x88D(\x11\x14A\x82\x14\x81AD\x82\x81\x81\x81\x81\x81\x81\x81\x81\x81\x88\x88\x88\x88\x88\x82"((\x88\x88\x11\x11\x82\x12A\x84\x81\x18\x12\x18\x18\x12\x14!\x11\x02\x10\x19#### %\'\'\'\'((&(!&&$& "\'\'\'&\n \'&\'((((((((\x18#&(%(((\x1f##&(((\x1d$#\x16\r\x1d\x1d"\x1e" \x1f""\x1e"" "\x1d\x1d \x1b\x10\x1e\x1e\x1e#"#"\x1d""#""\x19\x1d\x19 """ASC\xbcXSC<XNC\x00XMC\x00XOC\x01XGC\x01NMC\x01MDZ98\x00YSC\xc8YTZCP\x00',
     b'\x0f\x01\x00\x00\t\x00\x00\x00%D\xd2\x07(,\x921\x01\x00\x93\x00d\x00\x00\x00\t\x00\x00\x00\xd1B\xd2\x07G\xfe\xff\xffHWI-ST960:96:COTO3ACXX:3:1101:1591:2148\x00@\x06\x00\x00D\x82\x14AH\x88AA"\x14"\x84\x12!\x12\x18D\x84\x11\x12"$\x82\x88\x81(\x14\x11\x12\x18\x11\x11\x11\x88\x14(DB\x18D\x84B\x12\x12B(H\x11\x82"\x18\x1e\x1f\x19\x19\x13\x07\x19\x19\x19\x1d\x1a\x1d"\x19\x0b\x0b\x0b\x1e\x1b\x12\x1e\x1a\x1a\x1a \x1f\x1a\x1a"\x1d\x1d\x1f\x19\x1e\x16\x14\x06\x13!\x17\x0e\x1a\x16\x16\x1b!\x1c\x13\'&&&$%!\x17\'%\x1a%\'\'#(\'#\x18\x1f\x1b&&\'&$"\x18&&(&\'\x1f%$$\x1b#\x16#\x1e\'# \x1a##\x1e\x1f\x1eASC\xc8XSC\x8dXNC\x00XMC\x00XOC\x00XGC\x00NMC\x00MDZ100\x00YSC\xbcYTZCP\x00']
 
-
 class test_main(unittest.TestCase):
     def setUp(self):
         pass
+
+    def test_always_zero(self):
+        self.assertEqual(always_zero(),0)
+
+    def test_always_very_negative(self):
+        self.assertEqual(always_very_negative(),MIN32INT)
 
     def test_split_forward_reverse(self):
         expected = ([
@@ -55,7 +67,7 @@ class test_main(unittest.TestCase):
         self.assertEqual(get_max_AS_XS(BAMPAIR1), (198, 126))
         self.assertEqual(get_max_AS_XS([]), (-2147483648, -2147483648))
 
-    def test_get_cigar_based_score(self):
+    def test_calc_cigar_based_score(self):
         input_and_output = [(('*', None), -2147483648),
                             (('50M',0),0),
                             (('1S49M',0),-2),
@@ -66,7 +78,10 @@ class test_main(unittest.TestCase):
                             (('10M1234N40M', 0), 0),
                             ]
         for (inpt, outpt) in input_and_output:
-            self.assertEqual(get_cigarbased_score(*inpt), outpt)
+            self.assertEqual(calc_cigar_based_score(*inpt), outpt)
+
+    def test_get_cigar_based_score(self):
+        pass
 
     def test_XenomapperOutputWriter(self):
         xow = XenomapperOutputWriter(b"p", b"pr", b"s", b"sr")
@@ -117,6 +132,14 @@ class test_main(unittest.TestCase):
         new_bam.close()
         the_bam.close()
 
+        with XenomapperOutputWriter(primary_raw_header = b'',
+                                    primary_raw_refs = b'',
+                                    secondary_raw_header = b'',
+                                    secondary_raw_refs = b'',
+                                    ) as xow:
+            for key in xow.keys():
+                xow[key].write('foo')
+
     def test_get_mapping_state(self):
         very_negative = -2147483648
         inpt_and_outpt = [
@@ -148,30 +171,230 @@ class test_main(unittest.TestCase):
             self.assertEqual(get_mapping_state(*inpt), outpt)
         pass
 
-def test_output_summary(self):
-    test_outfile = io.StringIO()
-    canned_output = '--------------------------------------------------------------------------------\n' + \
-                    'Read Count Category Summary\n\n' + \
-                    '|       Category                                     |     Count       |\n' + \
-                    '|:--------------------------------------------------:|:---------------:|\n' + \
-                    '|  bar                                               |            101  |\n' + \
-                    '|  foo                                               |              1  |\n\n'
-    output_summary({'foo': 1, 'bar': 101}, outfile=test_outfile)
-    self.assertEqual(test_outfile.getvalue(), canned_output)
-    pass
+    def test_state_map(self):
+        self.assertEqual(state_map(*('primary_specific', 'primary_multi')), 'primary_specific')
+        self.assertEqual(state_map(*('primary_specific', 'secondary_specific')), 'primary_specific')
+        self.assertEqual(state_map(*('primary_specific', 'secondary_multi')), 'primary_specific')
+        self.assertEqual(state_map(*('primary_specific', 'unassigned')), 'primary_specific')
+        self.assertEqual(state_map(*('primary_specific', 'unresolved')), 'primary_specific')
+        self.assertEqual(state_map(*('primary_specific', None)), 'primary_specific')
+        self.assertEqual(state_map(*('primary_multi', 'primary_specific')), 'primary_specific')
+        self.assertEqual(state_map(*('primary_multi', 'secondary_specific')), 'secondary_specific')
+        self.assertEqual(state_map(*('primary_multi', 'secondary_multi')), 'primary_multi')
+        self.assertEqual(state_map(*('primary_multi', 'unassigned')), 'primary_multi')
+        self.assertEqual(state_map(*('primary_multi', 'unresolved')), 'primary_multi')
+        self.assertEqual(state_map(*('primary_multi', None)), 'primary_multi')
+        self.assertEqual(state_map(*('secondary_specific', 'primary_specific')), 'primary_specific')
+        self.assertEqual(state_map(*('secondary_specific', 'primary_multi')), 'secondary_specific')
+        self.assertEqual(state_map(*('secondary_specific', 'secondary_multi')), 'secondary_specific')
+        self.assertEqual(state_map(*('secondary_specific', 'unassigned')), 'secondary_specific')
+        self.assertEqual(state_map(*('secondary_specific', 'unresolved')), 'secondary_specific')
+        self.assertEqual(state_map(*('secondary_specific', None)), 'secondary_specific')
+        self.assertEqual(state_map(*('secondary_multi', 'primary_specific')), 'primary_specific')
+        self.assertEqual(state_map(*('secondary_multi', 'primary_multi')), 'primary_multi')
+        self.assertEqual(state_map(*('secondary_multi', 'secondary_specific')), 'secondary_specific')
+        self.assertEqual(state_map(*('secondary_multi', 'unassigned')), 'secondary_multi')
+        self.assertEqual(state_map(*('secondary_multi', 'unresolved')), 'secondary_multi')
+        self.assertEqual(state_map(*('secondary_multi', None)), 'secondary_multi')
+        self.assertEqual(state_map(*('unassigned', 'primary_specific')), 'primary_specific')
+        self.assertEqual(state_map(*('unassigned', 'primary_multi')), 'primary_multi')
+        self.assertEqual(state_map(*('unassigned', 'secondary_specific')), 'secondary_specific')
+        self.assertEqual(state_map(*('unassigned', 'secondary_multi')), 'secondary_multi')
+        self.assertEqual(state_map(*('unassigned', 'unresolved')), 'unresolved')
+        self.assertEqual(state_map(*('unassigned', None)), 'unassigned')
+        self.assertEqual(state_map(*('unresolved', 'primary_specific')), 'primary_specific')
+        self.assertEqual(state_map(*('unresolved', 'primary_multi')), 'primary_multi')
+        self.assertEqual(state_map(*('unresolved', 'secondary_specific')), 'secondary_specific')
+        self.assertEqual(state_map(*('unresolved', 'secondary_multi')), 'secondary_multi')
+        self.assertEqual(state_map(*('unresolved', 'unassigned')), 'unresolved')
+        self.assertEqual(state_map(*('unresolved', None)), 'unresolved')
+        self.assertEqual(state_map(*(None, 'primary_specific')), 'primary_specific')
+        self.assertEqual(state_map(*(None, 'primary_multi')), 'primary_multi')
+        self.assertEqual(state_map(*(None, 'secondary_specific')), 'secondary_specific')
+        self.assertEqual(state_map(*(None, 'secondary_multi')), 'secondary_multi')
+        self.assertEqual(state_map(*(None, 'unassigned')), 'unassigned')
+        self.assertEqual(state_map(*(None, 'unresolved')), 'unresolved')
+        self.assertRaises(ValueError, state_map, *('foo','bar'))
 
-def test_AlignbatchFileReader(self):
-    test_bam = resource_stream(__name__, 'data/paired_end_testdata_human.bam')
-    the_bam = AlignbatchFileReader(gzip.open(test_bam))
-    self.assertEqual(next(the_bam), BAMPAIR1)
-    for i in range(41):
-        next(the_bam)
-    self.assertEqual(next(the_bam), BAMPAIR42)
-    for alignbatch in the_bam:
-        # ensure we read to the end of the file as a test
+    def test_conservative_state_map(self):
+        self.assertEqual(conservative_state_map(*('primary_specific', 'primary_multi')), 'primary_specific')
+        self.assertEqual(conservative_state_map(*('primary_specific', 'secondary_specific')), 'unresolved')
+        self.assertEqual(conservative_state_map(*('primary_specific', 'secondary_multi')), 'unresolved')
+        self.assertEqual(conservative_state_map(*('primary_specific', 'unassigned')), 'unassigned')
+        self.assertEqual(conservative_state_map(*('primary_specific', 'unresolved')), 'unresolved')
+        self.assertEqual(conservative_state_map(*('primary_specific', None)), 'primary_specific')
+        self.assertEqual(conservative_state_map(*('primary_multi', 'primary_specific')), 'primary_specific')
+        self.assertEqual(conservative_state_map(*('primary_multi', 'secondary_specific')), 'unresolved')
+        self.assertEqual(conservative_state_map(*('primary_multi', 'secondary_multi')), 'unresolved')
+        self.assertEqual(conservative_state_map(*('primary_multi', 'unassigned')), 'unassigned')
+        self.assertEqual(conservative_state_map(*('primary_multi', 'unresolved')), 'unresolved')
+        self.assertEqual(conservative_state_map(*('primary_multi', None)), 'primary_multi')
+        self.assertEqual(conservative_state_map(*('secondary_specific', 'primary_specific')), 'unresolved')
+        self.assertEqual(conservative_state_map(*('secondary_specific', 'primary_multi')), 'unresolved')
+        self.assertEqual(conservative_state_map(*('secondary_specific', 'secondary_multi')), 'secondary_specific')
+        self.assertEqual(conservative_state_map(*('secondary_specific', 'unassigned')), 'unassigned')
+        self.assertEqual(conservative_state_map(*('secondary_specific', 'unresolved')), 'unresolved')
+        self.assertEqual(conservative_state_map(*('secondary_specific', None)), 'secondary_specific')
+        self.assertEqual(conservative_state_map(*('secondary_multi', 'primary_specific')), 'unresolved')
+        self.assertEqual(conservative_state_map(*('secondary_multi', 'primary_multi')), 'unresolved')
+        self.assertEqual(conservative_state_map(*('secondary_multi', 'secondary_specific')), 'secondary_specific')
+        self.assertEqual(conservative_state_map(*('secondary_multi', 'unassigned')), 'unassigned')
+        self.assertEqual(conservative_state_map(*('secondary_multi', 'unresolved')), 'unresolved')
+        self.assertEqual(conservative_state_map(*('secondary_multi', None)), 'secondary_multi')
+        self.assertEqual(conservative_state_map(*('unassigned', 'primary_specific')), 'unassigned')
+        self.assertEqual(conservative_state_map(*('unassigned', 'primary_multi')), 'unassigned')
+        self.assertEqual(conservative_state_map(*('unassigned', 'secondary_specific')), 'unassigned')
+        self.assertEqual(conservative_state_map(*('unassigned', 'secondary_multi')), 'unassigned')
+        self.assertEqual(conservative_state_map(*('unassigned', 'unresolved')), 'unassigned')
+        self.assertEqual(conservative_state_map(*('unassigned', None)), 'unassigned')
+        self.assertEqual(conservative_state_map(*('unresolved', 'primary_specific')), 'unresolved')
+        self.assertEqual(conservative_state_map(*('unresolved', 'primary_multi')), 'unresolved')
+        self.assertEqual(conservative_state_map(*('unresolved', 'secondary_specific')), 'unresolved')
+        self.assertEqual(conservative_state_map(*('unresolved', 'secondary_multi')), 'unresolved')
+        self.assertEqual(conservative_state_map(*('unresolved', 'unassigned')), 'unassigned')
+        self.assertEqual(conservative_state_map(*('unresolved', None)), 'unresolved')
+        self.assertEqual(conservative_state_map(*(None, 'primary_specific')), 'primary_specific')
+        self.assertEqual(conservative_state_map(*(None, 'primary_multi')), 'primary_multi')
+        self.assertEqual(conservative_state_map(*(None, 'secondary_specific')), 'secondary_specific')
+        self.assertEqual(conservative_state_map(*(None, 'secondary_multi')), 'secondary_multi')
+        self.assertEqual(conservative_state_map(*(None, 'unassigned')), 'unassigned')
+        self.assertEqual(conservative_state_map(*(None, 'unresolved')), 'unresolved')
+        self.assertRaises(ValueError, conservative_state_map, *('foo','bar'))
+
+    def test_output_summary(self):
+        canned_output = '-'*80 + '\n' + \
+                        '\nRead Count Category Summary\n\n\n' + \
+                        '|       Category '+' '*36 + '|     Count       |\n' + \
+                        '|:' + '-'*50 + ':|:---------------:|\n' + \
+                        '|  bar           '+' '*36 + '|            101  |\n' + \
+                        '|  foo           '+' '*36 + '|              1  |\n\n'
+        canned_output2 = '-'*80 + '\n' + \
+                        '\nRead Count Category Summary\n\n\n' + \
+                        '|       Category '+' '*36 + '|     Count       |\n' + \
+                        '|:' + '-'*50 + ':|:---------------:|\n' + \
+                        '|  bar & foo     '+' '*36 + '|            101  |\n' + \
+                        '|  foo & bar     '+' '*36 + '|              1  |\n\n'
+        test_outfile = io.StringIO()
+        output_summary({'foo': 1, 'bar': 101}, outfile=test_outfile)
+        self.assertEqual(test_outfile.getvalue(), canned_output)
+        test_outfile = io.StringIO()
+        output_summary({('foo','bar'): 1, ('bar','foo'): 101},
+                       outfile=test_outfile)
+        self.assertEqual(test_outfile.getvalue(), canned_output2)
         pass
-    the_bam.close()
-    test_bam.close()
+
+    def test_AlignbatchFileReader(self):
+        test_bam = resource_stream(__name__, 'data/paired_end_testdata_human.bam')
+        the_bam = AlignbatchFileReader(gzip.open(test_bam))
+        self.assertEqual(next(the_bam), BAMPAIR1)
+        for i in range(41):
+            next(the_bam)
+        self.assertEqual(next(the_bam), BAMPAIR42)
+        for alignbatch in the_bam:
+            # ensure we read to the end of the file as a test
+            pass
+        the_bam.close()
+        test_bam.close()
+
+    def test_xenomap_states(self):
+        self.assertEqual(xenomap_states(BAMPAIR1,BAMPAIR1),
+                         ('unresolved', 'unresolved'))
+        self.assertRaises(ValueError, xenomap_states,*(BAMPAIR1,BAMPAIR42))
+        self.assertEqual(xenomap_states([BAMPAIR1[0],],[BAMPAIR1[0],]),
+                         ('unresolved', None))
+
+
+    def test_cli_help(self):
+        def capture(command, *args, **kwargs):
+            err, sys.stderr = sys.stderr, io.StringIO()
+            out, sys.stdout = sys.stdout, io.StringIO()
+            try:
+                try:
+                    command(*args, **kwargs)
+                except docopt.DocoptExit:
+                    sys.stderr.seek(0)
+                    sys.stdout.seek(0)
+                    return sys.stderr.read(), sys.stdout.read()
+                except SystemExit:
+                    sys.stderr.seek(0)
+                    sys.stdout.seek(0)
+                    return sys.stderr.read(), sys.stdout.read()
+                sys.stderr.seek(0)
+                sys.stdout.seek(0)
+                return sys.stderr.read(),sys.stdout.read()
+            finally:
+                sys.stderr = err
+                sys.stdout = out
+
+        out,err = capture(cli.main)
+        # # Manually confirm correct output when hash changes
+        # print(err)
+        # print(sha256(err.encode()).hexdigest())
+        self.assertEqual('9d08660336777fbcea104ac20eafb4654840c257c2e297d747a106e85f9f2622',
+                         sha256(err.encode()).hexdigest())
+        self.assertEqual('',out)
+        # check docopt exits. Cant capture error to check output
+        self.assertRaises(docopt.DocoptExit, cli.main, *('--foo',))
+        #self.assertRaises(docopt.DocoptExit, cli.main, None)
+
+    def test_cli(self):
+        prime = resource_filename(__name__,
+                                  'data/paired_end_testdata_human.bam')
+        second = resource_filename(__name__,
+                                   'data/paired_end_testdata_mouse.bam')
+        arguments = f"--primary {prime} --secondary {second}"
+        self.assertEqual(list(dict(cli.main(arguments)[1]).values()),
+                         [134, 89, 7, 6, 1, 1])
+        arguments = (f"--primary {prime} --secondary {second} "
+                     "--max")
+        self.assertEqual(list(dict(cli.main(arguments)[1]).values()),
+                         [134, 89, 7, 6, 1, 1])
+        arguments = (f"--primary {prime} --secondary {second} "
+                     "--min-score 190")
+        self.assertEqual(list(dict(cli.main(arguments)[1]).values()),
+                         [124, 76, 4, 3, 0, 31])
+        arguments = (f"--primary {prime} --secondary {second} "
+                     "--conservative")
+        self.assertEqual(list(dict(cli.main(arguments)[1]).values()),
+                         [133, 89, 7, 6, 2, 1])
+        arguments = (f"--primary {prime} --secondary {second} "
+                     "--cigar")
+        self.assertEqual(list(dict(cli.main(arguments)[1]).values()),
+                         [141, 95, 0, 0, 1, 1])
+        arguments = (f"--primary {prime} --secondary {second} "
+                     "--zs")
+        self.assertEqual(list(dict(cli.main(arguments)[1]).values()),
+                         [141, 95, 0, 0, 1, 1])
+
+    def test_xenomap(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+
+            primary = AlignbatchFileReader(gzip.open(resource_stream(__name__,'data/paired_end_testdata_human.bam')))
+            secondary = AlignbatchFileReader(gzip.open(resource_stream(__name__,'data/paired_end_testdata_mouse.bam')))
+            xow = XenomapperOutputWriter(primary.raw_header,
+                                         primary.raw_refs,
+                                         secondary.raw_header,
+                                         secondary.raw_refs)
+            output = xenomap(primary,secondary,xow,get_bamprimary_AS_XS)
+            self.assertEqual(list(dict(output[1]).values()),
+                             [134, 89, 7, 6, 1, 1])
+            self.assertEqual(str(type(output[2])),
+                             "<class 'xenomapper2.xenomapper2.XenomapperOutputWriter'>")
+            xow.close()
+            primary.close()
+            secondary.close()
+
+            primary = AlignbatchFileReader(gzip.open(resource_stream(__name__,'data/minitest.sorted.bam')))
+            secondary = AlignbatchFileReader(gzip.open(resource_stream(__name__,'data/paired_end_testdata_mouse.bam')))
+            self.assertRaises(ValueError,xenomap,*(primary,secondary,xow,get_bamprimary_AS_XS))
+            primary = AlignbatchFileReader(gzip.open(resource_stream(__name__,'data/paired_end_testdata_human.bam')))
+            secondary = AlignbatchFileReader(gzip.open(resource_stream(__name__,'data/minitest.sorted.bam')))
+            self.assertRaises(ValueError,xenomap,*(primary,secondary,xow,get_bamprimary_AS_XS))
+            primary = AlignbatchFileReader(gzip.open(resource_stream(__name__,'data/paired_end_testdata_human.bam')))
+            secondary = AlignbatchFileReader(gzip.open(resource_stream(__name__,'data/minitest.bam')))
+            self.assertRaises(ValueError,xenomap,*(primary,secondary,xow,get_bamprimary_AS_XS))
+
 
 
 if __name__ == '__main__':

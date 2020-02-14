@@ -103,7 +103,7 @@ __status__ = "Development/Beta"
 
 
 def main(arguments: str = None):
-    if not arguments:
+    if not arguments:#pragma: no cover
         args = docopt(__doc__,
                       version= f"xenomapper2 v{__version__}")
     else:
@@ -112,13 +112,13 @@ def main(arguments: str = None):
                       version= f"xenomapper2 v{__version__}")
 
     #if run with no arguments print help
-    if not sum([bool(x) for x in args.values()]):
+    if not sum([bool(x) for x in args.values()]): #pragma: no cover
         docopt(__doc__, argv='--help')
         sys.exit()
 
 
     if args["--cigar"]:
-        AS_function = get_cigarbased_score
+        AS_function = get_cigar_based_score
         XS_function = always_very_negative
 
     elif args["--zs"]:
@@ -179,8 +179,8 @@ def main(arguments: str = None):
 
     output_summary(category_counts=pair_counts, title='Read Category Summary')
     output_summary(category_counts=counts, title='Read Pair Category Summary')
-    pass
+    return pair_counts, counts
 
 
-if __name__ == '__main__':
+if __name__ == '__main__': #pragma: no cover
     main()

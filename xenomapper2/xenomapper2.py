@@ -109,28 +109,22 @@ class AlignbatchFileReader(FileReader):
     def _get_alignment_batches(self) -> Generator[bytes, None, None]:
         previous_name = None
         alignbatch = []
-        try:
-            for align in self.alignments:
-                name = get_raw_read_name(align, get_len_read_name(align))
-                if previous_name and name != previous_name:
-                    yield alignbatch
-                    alignbatch = []
-                alignbatch.append(align)
-                previous_name = name
-            if alignbatch:
+        for align in self.alignments:
+            name = get_raw_read_name(align, get_len_read_name(align))
+            if previous_name and name != previous_name:
                 yield alignbatch
-        except StopIteration:
-            if alignbatch:
-                yield alignbatch
-                raise
-            else:
-                raise
+                alignbatch = []
+            alignbatch.append(align)
+            previous_name = name
+        if alignbatch:
+            yield alignbatch
 
     def __next__(self):
         return next(self.alignment_batches)
 
-def get_cigarbased_score(cigar_string: str,
-                         NM: int,
+
+def calc_cigar_based_score(cigar_string: bytes,
+                         NM: int = None,
                          mismatch: int = -6,
                          gap_open: int = -5,
                          gap_extend: int = -3,
@@ -144,9 +138,7 @@ def get_cigarbased_score(cigar_string: str,
                    softclipped -2 (equiv to +2 match rescaled)
     Parameters
     ----------
-    cigar_string: str
-
-    NM: int
+    align : bytes
 
     mismatch : int
 
@@ -173,6 +165,17 @@ def get_cigarbased_score(cigar_string: str,
             + (gap_extend * (sum(insertions) + sum(deletions))) \
             + (softclip * sum(softclips))
     return score
+
+def get_cigar_based_score(align: bytes,
+                          no_tag: int = MIN32INT) -> int:
+    cigar_string = decode_cigar(get_raw_cigar(align,
+                                            get_len_read_name(align),
+                                            get_number_cigar_operations(align),
+                                            )
+                                )
+    NM = get_int_tag(align, b'NM', None)
+    return calc_cigar_based_score(cigar_string, NM)
+
 
 def always_zero(*args,**kwargs):
     """A function that returns zero for any combination of parameters"""
@@ -210,7 +213,7 @@ def split_forward_reverse(alignments: List[bytes]
             forward.append(align)
         elif is_flag(align, FLAGS['reverse']):
             reverse.append(align)
-        else:
+        else: #pragma: no cover
             raise ValueError(f"The alignment {align} has neither the forward"
                              "or the reverse flag set")
     return (forward, reverse)
@@ -333,13 +336,13 @@ def get_mapping_state(AS1, XS1, AS2, XS2, min_score=MIN32INT):
         else:
             # multimaps in secondary better than primary
             return 'secondary_multi'
-    else:
+    else: #pragma: no cover
         raise RuntimeError(
             f"Error in processing logic with values {(AS1, XS1, AS2, XS2)}"
         )
 
 
-class DummyFile():
+class DummyFile(): #pragma: no cover
     """A dummy io class looks like pylazybam.bam.FileWriter that does nothing"""
     def __init__(self, *args, **kwargs):
         self.raw_header = None
@@ -452,6 +455,9 @@ class XenomapperOutputWriter():
 
     def __getitem__(self, key):
         return self._fileobjects[key]
+
+    def keys(self):
+        return self._fileobjects.keys()
 
     def __enter__(self):
         return self
@@ -595,8 +601,10 @@ def xenomap(primary_bam,
     for primary_aligns, secondary_aligns in zip_longest(primary_bam,
                                                         secondary_bam,
                                                         fillvalue = None):
-        if primary_aligns == None or secondary_aligns == None:
-            raise ValueError("BAM files are unequal lengths")
+        # TODO This code probably does not do what I think it should
+        # Need to work out how to properly test for uneven file lengths
+        #if primary_aligns == None or secondary_aligns == None:
+        #    raise ValueError("BAM files are unequal lengths")
         forward_state, reverse_state = xenomap_states(primary_aligns,
                                                   secondary_aligns,
                                                   score_function,
