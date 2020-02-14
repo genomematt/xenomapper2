@@ -174,7 +174,10 @@ def get_cigar_based_score(align: bytes,
                                             )
                                 )
     NM = get_int_tag(align, b'NM', None)
-    return calc_cigar_based_score(cigar_string, NM)
+    if cigar_string == None or cigar_string == '*' or NM == None:
+        return no_tag #either a multimapper or unmapped
+    else:
+        return calc_cigar_based_score(cigar_string, NM)
 
 
 def always_zero(*args,**kwargs):
