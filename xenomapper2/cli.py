@@ -16,11 +16,14 @@
 ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝     ╚══════╝╚═╝  ╚═╝  ╚══════╝
 xenomapper2
 
-A script for parsing pairs of BAM format files of reads mapped to two different
+A script for parsing pairs of BAM format files of reads aligned to two different
 genomes and returning BAM files containing only reads where no better mapping
-exist in other files (and optionally additional categories.
+exist in other genome (and optionally outputting additional categories).
 Used for filtering reads where multiple species may contribute (eg human cancer
- xenografted into mouse, humanised mice, and co-sequenced pathogen and host).
+xenografted into mouse, humanised mice, and co-sequenced pathogen and host).
+Designed to work with single and paired end reads with or without secondary/alt
+alignments.
+
 
 Created by Matthew Wakefield.
 Copyright (c) 2011-2020  Matthew Wakefield
@@ -70,7 +73,8 @@ Options:
                              assignment
 
 Note that unlike prior xenomapper versions there is no --pair option as forward
-and reverse reads are automatically extracted based on their flag
+and reverse reads are automatically extracted based on their flag. Files of
+mixed paired and single end reads are now fully supported.
 
 The dots at the start of the useage line have no meaning. They are just there to
 keep the argument parser (docopt) from disliking lines that start with --

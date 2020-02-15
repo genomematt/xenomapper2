@@ -3,11 +3,13 @@
 """
 xenomapper2.py
 
-A script for parsing pairs of BAM format files of reads mapped to two different
+A script for parsing pairs of BAM format files of reads aligned to two different
 genomes and returning BAM files containing only reads where no better mapping
-exist in other files (and optionally additional categories.
+exist in other genome (and optionally outputting additional categories).
 Used for filtering reads where multiple species may contribute (eg human cancer
- xenografted into mouse, humanised mice, and co-sequenced pathogen and host).
+xenografted into mouse, humanised mice, and co-sequenced pathogen and host).
+Designed to work with single and paired end reads with or without secondary/alt
+alignments.
 
 Created by Matthew Wakefield.
 Copyright (c) 2011-2020  Matthew Wakefield
@@ -23,7 +25,7 @@ All rights reserved.
 """
 
 import sys, gzip
-from typing import List, Tuple
+from typing import List, Tuple, BinaryIO, Union, Iterable, Callable
 from collections import Counter
 from itertools import zip_longest
 
@@ -90,11 +92,13 @@ class AlignbatchFileReader(FileReader):
         >>> ubam = gzip.open('/tests/data/paired_end_testdata_human.bam'))
 
         A bam filereader object can then be created and headers inspected
+
         >>> mybam = bam.FileReader(ubam)
         >>> print(mybam.header)
 
         The filereader object is an iterator and yields batches of alignments
         in raw BAM binary format
+
         >>> align_batch = next(mybam)
         >>> for align in align_batch:
         >>>     print(mybam.index_to_ref[get_ref_index(align)],
@@ -102,6 +106,7 @@ class AlignbatchFileReader(FileReader):
         >>>           get_AS(align))
 
     """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.alignment_batches = self._get_alignment_batches()
@@ -129,30 +134,39 @@ def calc_cigar_based_score(cigar_string: bytes,
                          gap_open: int = -5,
                          gap_extend: int = -3,
                          softclip: int = -2) -> int:
-    """Return calculated values for a score equivalent to a
-    rescaled AS tag using the cigar line and NM tags from the
-    SAM entry.
-    Score is rescaled such that a perfect match for the full
-    length of the read acchieves a score of 0.0.
-    Penalties are: mismatch -6, gap open -5, gap extend -3,
-                   softclipped -2 (equiv to +2 match rescaled)
+    """Calculate values for a score equivalent to a
+    rescaled AS tag using the SAM formatted cigar line and NM tags from an
+    alignment.
+    Score is scaled such that a perfect match for the full
+    length of the read achieves a score of 0.
+    Standard penalties are: mismatch -6, gap open -5, gap extend -3,
+    softclipped -2 (equiv to +2 match)
+
     Parameters
     ----------
     align : bytes
-
+        the raw alignment entry from a BAM file
     mismatch : int
-
+        score penalty for a mismatch [ Default : -6 ]
     gap_open : int
-
+        score penalty for opening/initiating a gap [ Default : -5 ]
     gap_extend : int
-
+        score penalty for extending an existing gap [ Default : -3 ]
     softclip : int
+        score penalty for removing bases at the start or end of a read
+        [ Default : -2 ]
 
     Returns
     -------
     int
-        The AS score calculated from the cigar string
+        The AS like score calculated from the cigar string
+        0 maximum and mismatch*seq_length theoretical minimum
+
+    See Also
+    --------
+    get_cigar_based_score
     """
+
     if cigar_string == '*' or NM == None:
         return MIN32INT #either a multimapper or unmapped
     mismatches = NM
@@ -168,6 +182,27 @@ def calc_cigar_based_score(cigar_string: bytes,
 
 def get_cigar_based_score(align: bytes,
                           no_tag: int = MIN32INT) -> int:
+    """Returns a score equivalent to a rescaled AS tag from a raw BAM alignment
+    Extracts and decodes the cigar string and NM tags and calls
+    calc_cigar_based_score to calculate
+
+    Parameters
+    ----------
+    align : bytes
+        A raw alignment from a BAM file
+    no_tag : int
+        The value to return if no NM tag or cigar string is present
+
+    Returns
+    -------
+    int
+        the AS like score with 0 maximum and -6*seq_length theoretical minimum
+
+    See Also
+    --------
+    calc_cigar_based_score
+    """
+
     cigar_string = decode_cigar(get_raw_cigar(align,
                                             get_len_read_name(align),
                                             get_number_cigar_operations(align),
@@ -180,12 +215,30 @@ def get_cigar_based_score(align: bytes,
         return calc_cigar_based_score(cigar_string, NM)
 
 
-def always_zero(*args,**kwargs):
-    """A function that returns zero for any combination of parameters"""
+def always_zero(*args,**kwargs) -> int:
+    """A function that returns zero for any combination of parameters
+    Returns
+    -------
+    int
+        always 0
+
+    See Also
+    --------
+    always_very_negative
+    """
     return 0
 
-def always_very_negative(*args,**kwargs):
-    """A function that returns zero for any combination of parameters"""
+def always_very_negative(*args,**kwargs) -> int:
+    """A function that returns -2**31 for any combination of parameters
+    Returns
+    -------
+    int
+        always -2**31 == MIN32INT == -2147483648
+
+    See Also
+    --------
+    always_zero
+    """
     return MIN32INT
 
 def split_forward_reverse(alignments: List[bytes]
@@ -254,6 +307,7 @@ def get_bamprimary_AS_XS(alignments: List[bytes],
         raises value error if there is no primary or more than one primary flag
 
     """
+
     bamprimary = [a for a in alignments if not is_flag(a,FLAGS['secondary'])]
     # We keep unmapped reads as this is an expected state in secondary species
     if len(bamprimary) == 1:
@@ -296,6 +350,7 @@ def get_max_AS_XS(alignments: List[bytes],
     Tuple[int,int]
         a tuple of the alignment score AS and suboptimal alignment score XS
     """
+
     if not alignments:
         return (default,default)
     scores = sorted([(AS_function(a),XS_function(a)) for a in alignments],
@@ -303,23 +358,35 @@ def get_max_AS_XS(alignments: List[bytes],
     return scores[-1]
 
 
-def get_mapping_state(AS1, XS1, AS2, XS2, min_score=MIN32INT):
+def get_mapping_state(AS1: int,
+                      XS1: int,
+                      AS2: int,
+                      XS2: int,
+                      min_score: int = MIN32INT):
     """Determine the mapping state based on scores in each species.
     Scores can be negative but better matches must have higher scores
-    Arguments:
-        AS1  - float or interger score of best match in primary species
-        XS1  - float or interger score of other match in primary species
-        AS2  - float or interger score of best match in secondary species
-        XS2  - float or interger score of other match in secondary species
-        min_score - the score that matches must exceed in order to be
-                    considered valid matches. Note scores equalling this
-                    value will also be considered not to match.
-                    Default = -inf
+
+    Parameters
+    ----------
+        AS1 : int
+            score of best match in primary species
+        XS1 : int
+            score of suboptimal match in primary species
+        AS2 : int
+            score of best match in secondary species
+        XS2 : int
+            score of suboptimal match in secondary species
+        min_score : int [ Default : -2**31 ]
+            the score that matches must exceed in order to be
+            considered valid matches. Note scores equalling this
+            value will also be considered not to match.
     Returns
+    -------
         state - a string of 'primary_specific', 'secondary_specific',
                 'primary_multi', 'secondary_multi',
                 'unresolved', or 'unassigned' indicating match state.
     """
+
     if AS1 <= min_score and AS2 <= min_score:  # low quality mapping in both
         return 'unassigned'
     elif AS1 > min_score and (AS2 <= min_score or AS1 > AS2):
@@ -346,7 +413,8 @@ def get_mapping_state(AS1, XS1, AS2, XS2, min_score=MIN32INT):
 
 
 class DummyFile(): #pragma: no cover
-    """A dummy io class looks like pylazybam.bam.FileWriter that does nothing"""
+    """A dummy io class - looks like pylazybam.bam.FileWriter but does nothing
+    """
     def __init__(self, *args, **kwargs):
         self.raw_header = None
         self.raw_refs = None
@@ -388,30 +456,92 @@ class DummyFile(): #pragma: no cover
 
 
 class XenomapperOutputWriter():
+    """Container class grouping xenomapper output files & manipulating headers
+
+    Updated headers are written to these files on initialization. The primary
+    BAM header is used for all files except secondary_specific and
+    secondary_multi.
+    A @PO line is added to the file indicating the id and program as xenomapper
+    with the version, a description field indicating the type of xenomapper
+    output in the file (eg primary_specific) and the command used to run it.
+
+    Parameters
+    ----------
+    primary_raw_header : bytes
+        the raw header from the primary species BAM file
+    primary_raw_refs : bytes
+        the raw reference sequence info from the primary species BAM file
+    secondary_raw_header : bytes
+        the raw header from the secondary species BAM file
+    secondary_raw_refs : bytes
+        the raw reference sequence info from the secondary species BAM file
+    primary_specific : str or Path or BinaryIO, optional
+        output file for uniquely mapping primary specific alignments
+        [ Default : None ]
+    primary_multi : str or Path or BinaryIO, optional
+        output file for multimapping primary specific alignments
+        [ Default : None ]
+    secondary_specific : str or Path or BinaryIO, optional
+        output file for uniquely mapping secondary specific alignments
+        [ Default : None ]
+    secondary_multi : str or Path or BinaryIO, optional
+        output file for multimapping secondary specific alignments
+        [ Default : None ]
+    unresolved : str or Path or BinaryIO, optional
+        output file for alignments where primary or secondary is ambiguous
+        [ Default : None ]
+    unassigned : str or Path or BinaryIO, optional
+        output file for reads that do not map sufficiently well in either BAM
+        [ Default : None ]
+    basename : str, optional
+        filename stem to derive all output filenames <basename>_<outfilename>
+        (eg basename='Foo' -> Foo_primary_specific, ... Foo_unassigned)
+        [ Default : None ]
+    cmdline : str, optional
+        The commandline to include in the output BAM header
+    compresslevel : int, optional
+        gzip compression level for output file
+        [ Default : 6 ]
+
+    Returns
+    -------
+    A container class with __get_item__ , keys, close
+
+    Examples
+    --------
+
+    >>> xow = XenomapperOutputWriter(phead,pref,shead,sref,basename='/foo')
+    >>> for key in xow.keys():
+    >>>     xow[key].write(data)
+    >>> xow.close()
+
+    """
+
     def __init__(self,
-                 primary_raw_header,
-                 primary_raw_refs,
-                 secondary_raw_header,
-                 secondary_raw_refs,
-                 primary_specific=None,
-                 primary_multi=None,
-                 secondary_specific=None,
-                 secondary_multi=None,
-                 unresolved=None,
-                 unassigned=None,
-                 basename=None,
-                 cmdline='',
-                 compresslevel=6
+                 primary_raw_header: bytes,
+                 primary_raw_refs: bytes,
+                 secondary_raw_header: bytes,
+                 secondary_raw_refs: bytes,
+                 primary_specific: Union[str, Path, BinaryIO, None] = None,
+                 primary_multi: Union[str, Path, BinaryIO, None] = None,
+                 secondary_specific: Union[str, Path, BinaryIO, None] = None,
+                 secondary_multi: Union[str, Path, BinaryIO, None] = None,
+                 unresolved: Union[str, Path, BinaryIO, None] = None,
+                 unassigned: Union[str, Path, BinaryIO, None] = None,
+                 basename: str = None,
+                 cmdline: str = '',
+                 compresslevel: int = 6,
                  ):
+        #get only the 5th to 11th arguments to __init__
         file_arguments = dict(list(locals().items())[5:11])
 
         if basename == None:
-            self._fileobjects = {'unassigned': DummyFile(),
-                                'primary_specific': DummyFile(),
+            self._fileobjects = {'primary_specific': DummyFile(),
                                 'primary_multi': DummyFile(),
-                                'unresolved': DummyFile(),
                                 'secondary_specific': DummyFile(),
                                 'secondary_multi': DummyFile(),
+                                'unassigned': DummyFile(),
+                                'unresolved': DummyFile(),
                                 }
             for key in file_arguments:
                 if file_arguments[key]:
@@ -423,18 +553,33 @@ class XenomapperOutputWriter():
                 self._fileobjects[key] = bam.FileWriter(f"{basename}_{key}",
                                                     compresslevel=compresslevel)
 
-        self.write_headers(primary_raw_header,
+        self._write_headers(primary_raw_header,
                              primary_raw_refs,
                              secondary_raw_header,
                              secondary_raw_refs,
                              cmdline=cmdline)
 
 
-    def write_headers(self, primary_raw_header,
+    def _write_headers(self, primary_raw_header,
                              primary_raw_refs,
                              secondary_raw_header,
                              secondary_raw_refs,
                              cmdline=''):
+        """A function for updating and writing headers to output file
+
+        Parameters
+        ----------
+        primary_raw_header : bytes
+            the raw header from the primary species BAM file
+        primary_raw_refs : bytes
+            the raw reference sequence info from the primary species BAM file
+        secondary_raw_header : bytes
+            the raw header from the secondary species BAM file
+        secondary_raw_refs : bytes
+            the raw reference sequence info from the secondary species BAM file
+        cmdline : str, optional
+            The commandline to include in the output BAM header
+        """
         # write out the correct species header to all of the files
         # use primary for unresolved and unassigned
         # add @PO and @CO fields to the header
@@ -460,6 +605,11 @@ class XenomapperOutputWriter():
         return self._fileobjects[key]
 
     def keys(self):
+        """return the keys for the file output objects
+        Returns
+        -------
+        Iterable[str]
+        """
         return self._fileobjects.keys()
 
     def __enter__(self):
@@ -473,13 +623,47 @@ class XenomapperOutputWriter():
             self._fileobjects[fileobj].close()
 
 
-def xenomap_states(primary_aligns,
-                   secondary_aligns,
-                   score_function = get_bamprimary_AS_XS,
-                   AS_function = get_AS,
-                   XS_function = get_XS,
-                   min_score=MIN32INT,
-                   ):
+def xenomap_states(primary_aligns: Iterable[bytes],
+                   secondary_aligns: Iterable[bytes],
+                   score_function: Callable = get_bamprimary_AS_XS,
+                   AS_function: Callable = get_AS,
+                   XS_function: Callable = get_XS,
+                   min_score: int = MIN32INT,
+                   ) -> Tuple[int,int]:
+    """Get the xenomapping state for the forward and reverse reads
+
+    primary_aligns : List[bytes]
+        a list of binary format BAM alignments from the primary BAM.
+
+    secondary_aligns : List[bytes]
+        a list of binary format BAM alignments from the primary BAM.
+
+    score_function : Callable
+        a xenomapper alignment batch calling function
+        get_bamprimary_AS_XS or get_max_AS_XS
+
+    AS_function : Callable[[bytes], int]
+        a function that accepts a BAM alignment bytestring and returns the AS
+        score (alignment score) as an integer
+        get_AS or get_cigar_based_score
+
+    XS_function : Callable[[bytes], int]
+        a function that accepts a BAM alignment bytestring and returns the XS
+        score as an integer
+        get_XS, get_ZS, always_zero, or always_very_negative
+
+    min_score : int [ Default : -2**31 ]
+        the score that matches must exceed in order to be
+        considered valid matches. Note scores equalling this
+        value will also be considered not valid matches.
+
+    Returns
+    -------
+    Tuple[str,str]
+        the xenomapper state of the forward and reverse read
+
+    """
+
     primary_name = get_raw_read_name(primary_aligns[0],
                                      get_len_read_name(primary_aligns[0]))
     secondary_name = get_raw_read_name(secondary_aligns[0],
@@ -514,8 +698,37 @@ def xenomap_states(primary_aligns,
     return forward_state, reverse_state
 
 
-def state_map(forward_state, reverse_state):
+def state_map(forward_state: str,
+              reverse_state: str) -> str:
     # logic is directly copied from xenomapper 1.0
+    """State map for inferring the fragment state from forward & reverse
+    Reads where there is stronger but not contradictory evidence will be
+    assigned the more specific state.
+
+    Parameters
+    ----------
+    forward_state : str
+        a xenomapper state for the forward read
+        (primary_specific,primary_multi,secondary_specific,secondary_multi,
+        unassigned, unresolved)
+
+    reverse_state: str or None
+        a xenomapper state for the reverse read or None
+        (primary_specific,primary_multi,secondary_specific,secondary_multi,
+        unassigned, unresolved) or None
+
+    Returns
+    -------
+    str
+        a xenomapper state for the fragment
+        (primary_specific,primary_multi,secondary_specific,secondary_multi,
+        unassigned, unresolved)
+
+    Notes
+    -----
+    In future these will be of type PEP586 Literal
+
+    """
     if reverse_state == None:
         return forward_state
     elif forward_state == 'primary_specific' or reverse_state == 'primary_specific':
@@ -536,6 +749,35 @@ def state_map(forward_state, reverse_state):
 
 def conservative_state_map(forward_state, reverse_state):
     # logic is directly copied from xenomapper 1.0
+    """Conservative tate map for inferring fragment state from forward & reverse
+    Reads where there is ambiguous evidence will be assigned the least specific
+    state.
+
+    Parameters
+    ----------
+    forward_state : str
+        a xenomapper state for the forward read
+        (primary_specific,primary_multi,secondary_specific,secondary_multi,
+        unassigned, unresolved)
+
+    reverse_state: str or None
+        a xenomapper state for the reverse read or None
+        (primary_specific,primary_multi,secondary_specific,secondary_multi,
+        unassigned, unresolved) or None
+
+    Returns
+    -------
+    str
+        a xenomapper state for the fragment
+        (primary_specific,primary_multi,secondary_specific,secondary_multi,
+        unassigned, unresolved)
+
+    Notes
+    -----
+    In future these will be of type PEP586 Literal
+
+    """
+
     if reverse_state == None:
         return forward_state
     elif forward_state == 'unassigned' or reverse_state == 'unassigned':
@@ -558,32 +800,54 @@ def conservative_state_map(forward_state, reverse_state):
         raise ValueError(f'Unexpected states forward:{forward_state} '
                          f'reverse:{reverse_state}')  # pragma: no cover
 
-def xenomap(primary_bam,
-                secondary_bam,
-                output_writer,
-                score_function: get_bamprimary_AS_XS,
-                AS_function=get_AS,
-                XS_function=get_XS,
-                min_score=MIN32INT,
-                conservative = False,
-                ):
-    """
+def xenomap(primary_bam: AlignbatchFileReader,
+            secondary_bam: AlignbatchFileReader,
+            output_writer: XenomapperOutputWriter,
+            score_function: Callable = get_bamprimary_AS_XS,
+            AS_function: Callable = get_AS,
+            XS_function: Callable = get_XS,
+            min_score: int = MIN32INT,
+            conservative: bool = False,
+            ):
+    """core method to coordinate the xenomapping of BAMS
 
     Parameters
     ----------
-    primary_bam
-    secondary_bam
-    output_writer
-    score_function
-    min_score
+    primary_bam : AlignbatchFileReader
+        An interable that yields iterables of primary BAM alignments
+
+    secondary_bam : AlignbatchFileReader
+        An interable that yields iterables of secondary BAM alignments
+
+    output_writer : XenomapperOutputWriter
+        output writer that holds output files of type bam.FileWriter
+
+    score_function : Callable
+        a xenomapper alignment batch calling function
+        get_bamprimary_AS_XS or get_max_AS_XS
+
+    AS_function : Callable[[bytes], int]
+        a function that accepts a BAM alignment bytestring and returns the AS
+        score (alignment score) as an integer
+        get_AS or get_cigar_based_score
+
+    XS_function : Callable[[bytes], int]
+        a function that accepts a BAM alignment bytestring and returns the XS
+        score as an integer
+        get_XS, get_ZS, always_zero, or always_very_negative
+
+    min_score : int
+        the score that matches must exceed in order to be
+        considered valid matches. Note scores equalling this
+        value will also be considered not valid matches.
+        [ Default : -2**31 ]
     conservative
 
     Returns
     -------
-    category_pair_counts,
-    category_counts,
-    output_writer
+    Tuple[Counter, Counter, XenomapperOutputWriter]
     """
+
     category_pair_counts = Counter()
     category_counts = { 'primary_specific' : 0,
                         'secondary_specific' : 0,
@@ -629,9 +893,17 @@ def xenomap(primary_bam,
 
     return category_pair_counts, category_counts, output_writer
 
-def output_summary(category_counts,
+def output_summary(category_counts: Counter,
                    title = 'Read Count Category Summary\n',
-                   outfile=sys.stderr):
+                   outfile = sys.stderr):
+    """Print a summary table based on a Counter
+
+    Parameters
+    ----------
+        category_counts : Counter
+        title : str
+        outfile : TextIO
+    """
     print('-' * 80, file=outfile)
     print(file=outfile)
     print(title, file=outfile)

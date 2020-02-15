@@ -351,7 +351,7 @@ class test_main(unittest.TestCase):
         # # Manually confirm correct output when hash changes
         # print(err)
         # print(sha256(err.encode()).hexdigest())
-        self.assertEqual('9d08660336777fbcea104ac20eafb4654840c257c2e297d747a106e85f9f2622',
+        self.assertEqual('3742b7b3fbb87c14e062465a449b381cea50d46cef89a6dc1cfd9df6cf9c2ac7',
                          sha256(err.encode()).hexdigest())
         self.assertEqual('',out)
         # check docopt exits. Cant capture error to check output
