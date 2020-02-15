@@ -41,6 +41,29 @@ BAMPAIR42 = [
     b'\x1a\x01\x00\x00\t\x00\x00\x00\xd1B\xd2\x07(,\x921\x04\x00c\x00d\x00\x00\x00\t\x00\x00\x00%D\xd2\x07\xb9\x01\x00\x00HWI-ST960:96:COTO3ACXX:3:1101:1591:2148\x00\x14\x00\x00\x00\xe0\x02\x00\x00\x11\x00\x00\x00@\x03\x00\x00\xf1\x88"\x88D(\x11\x14A\x82\x14\x81AD\x82\x81\x81\x81\x81\x81\x81\x81\x81\x81\x88\x88\x88\x88\x88\x82"((\x88\x88\x11\x11\x82\x12A\x84\x81\x18\x12\x18\x18\x12\x14!\x11\x02\x10\x19#### %\'\'\'\'((&(!&&$& "\'\'\'&\n \'&\'((((((((\x18#&(%(((\x1f##&(((\x1d$#\x16\r\x1d\x1d"\x1e" \x1f""\x1e"" "\x1d\x1d \x1b\x10\x1e\x1e\x1e#"#"\x1d""#""\x19\x1d\x19 """ASC\xbcXSC<XNC\x00XMC\x00XOC\x01XGC\x01NMC\x01MDZ98\x00YSC\xc8YTZCP\x00',
     b'\x0f\x01\x00\x00\t\x00\x00\x00%D\xd2\x07(,\x921\x01\x00\x93\x00d\x00\x00\x00\t\x00\x00\x00\xd1B\xd2\x07G\xfe\xff\xffHWI-ST960:96:COTO3ACXX:3:1101:1591:2148\x00@\x06\x00\x00D\x82\x14AH\x88AA"\x14"\x84\x12!\x12\x18D\x84\x11\x12"$\x82\x88\x81(\x14\x11\x12\x18\x11\x11\x11\x88\x14(DB\x18D\x84B\x12\x12B(H\x11\x82"\x18\x1e\x1f\x19\x19\x13\x07\x19\x19\x19\x1d\x1a\x1d"\x19\x0b\x0b\x0b\x1e\x1b\x12\x1e\x1a\x1a\x1a \x1f\x1a\x1a"\x1d\x1d\x1f\x19\x1e\x16\x14\x06\x13!\x17\x0e\x1a\x16\x16\x1b!\x1c\x13\'&&&$%!\x17\'%\x1a%\'\'#(\'#\x18\x1f\x1b&&\'&$"\x18&&(&\'\x1f%$$\x1b#\x16#\x1e\'# \x1a##\x1e\x1f\x1eASC\xc8XSC\x8dXNC\x00XMC\x00XOC\x00XGC\x00NMC\x00MDZ100\x00YSC\xbcYTZCP\x00']
 
+
+def capture(command, *args, **kwargs):
+    err, sys.stderr = sys.stderr, io.StringIO()
+    out, sys.stdout = sys.stdout, io.StringIO()
+    try:
+        try:
+            command(*args, **kwargs)
+        except docopt.DocoptExit:
+            sys.stderr.seek(0)
+            sys.stdout.seek(0)
+            return sys.stderr.read(), sys.stdout.read()
+        except SystemExit:
+            sys.stderr.seek(0)
+            sys.stdout.seek(0)
+            return sys.stderr.read(), sys.stdout.read()
+        sys.stderr.seek(0)
+        sys.stdout.seek(0)
+        return sys.stderr.read(), sys.stdout.read()
+    finally:
+        sys.stderr = err
+        sys.stdout = out
+
+
 class test_main(unittest.TestCase):
     def setUp(self):
         pass
@@ -84,61 +107,80 @@ class test_main(unittest.TestCase):
         pass
 
     def test_XenomapperOutputWriter(self):
-        xow = XenomapperOutputWriter(b"p", b"pr", b"s", b"sr")
-        self.assertEqual([repr(x) for x in list(xow._fileobjects.values())],
-                         [repr(DummyFile()), ] * 6)
-        tempd = TemporaryDirectory()
-        xow = XenomapperOutputWriter(b"p", b"s", b"s", b"sr",
-                                     basename=f'{tempd.name}foo')
-        expected = [f'{tempd.name}{f}' for f in ['foo_primary_specific',
-                                                 'foo_primary_multi',
-                                                 'foo_secondary_specific',
-                                                 'foo_secondary_multi',
-                                                 'foo_unresolved',
-                                                 'foo_unassigned']]
-        self.assertEqual([x.name for x in xow._fileobjects.values()],
-                         expected)
-        xow.close()
-        tempd.cleanup()
+        xow_keys = ['primary_specific', 'primary_multi',
+                    'secondary_specific', 'secondary_multi',
+                    'unresolved', 'unassigned']
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+
+
+            xow = XenomapperOutputWriter(b"p", b"pr", b"s", b"sr")
+            self.assertEqual([repr(x) for x in list(xow._fileobjects.values())],
+                             [repr(DummyFile()), ] * 6)
+            tempd = TemporaryDirectory()
+            xow = XenomapperOutputWriter(b"p", b"s", b"s", b"sr",
+                                         basename=f'{tempd.name}/foo')
+            expected = [f'{tempd.name}/{f}' for f in ['foo_primary_specific',
+                                                     'foo_primary_multi',
+                                                     'foo_secondary_specific',
+                                                     'foo_secondary_multi',
+                                                     'foo_unresolved',
+                                                     'foo_unassigned']]
+            self.assertEqual([x.name for x in xow._fileobjects.values()],
+                             expected)
+            self.assertEqual(list(xow.keys()),xow_keys)
+
+            #test with keywords not in arg order
+            xow = XenomapperOutputWriter(b"p", b"s", b"s", b"sr",
+                             **{x:tempd.name+'/'+x for x in reversed(xow_keys)})
+            for key in xow_keys:
+                self.assertEqual(xow[key].name.split('/')[-1],
+                                 key)
+            xow.close()
+            tempd.cleanup()
 
     def test_XenomapperOutputWriter_round_trip(self):
-        test_bam = resource_stream(__name__, 'data/minitest.bam')
-        the_bam = bam.FileReader(gzip.open(test_bam))
-        out_file = NamedTemporaryFile(delete=False)
-        out_file_name = out_file.name
-        out_file.close()
-        xow = XenomapperOutputWriter(the_bam.raw_header,
-                                     the_bam.raw_refs,
-                                     the_bam.raw_header,
-                                     the_bam.raw_refs,
-                                     primary_specific=out_file_name)
-        for align in the_bam:
-            xow['primary_specific'].write(align)
-        xow.close()
-        the_bam.close() # this should close test_bam and does below
-        test_bam.close() # this should not be needed but get ResourceWarning
-        # everything should be closed
-        # open original file again
-        retest_bam = resource_stream(__name__, 'data/minitest.bam')
-        the_bam = bam.FileReader(gzip.open(retest_bam))
-        # parse the new temporary file
-        new_bam = bam.FileReader(gzip.open(out_file_name))
-        self.assertEqual(the_bam.header,new_bam.header[:86])
-        try:
-            for align1,align2 in zip(new_bam,the_bam):
-                self.assertEqual(align1,align2)
-        except StopIteration:
-            pass
-        new_bam.close()
-        the_bam.close()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
 
-        with XenomapperOutputWriter(primary_raw_header = b'',
-                                    primary_raw_refs = b'',
-                                    secondary_raw_header = b'',
-                                    secondary_raw_refs = b'',
-                                    ) as xow:
-            for key in xow.keys():
-                xow[key].write('foo')
+            test_bam = resource_stream(__name__, 'data/minitest.bam')
+            the_bam = bam.FileReader(gzip.open(test_bam))
+            out_file = NamedTemporaryFile(delete=False)
+            out_file_name = out_file.name
+            out_file.close()
+            xow = XenomapperOutputWriter(the_bam.raw_header,
+                                         the_bam.raw_refs,
+                                         the_bam.raw_header,
+                                         the_bam.raw_refs,
+                                         primary_specific=out_file_name)
+            for align in the_bam:
+                xow['primary_specific'].write(align)
+            xow.close()
+            the_bam.close() # this should close test_bam and does below
+            test_bam.close() # this should not be needed but get ResourceWarning
+            # everything should be closed
+            # open original file again
+            retest_bam = resource_stream(__name__, 'data/minitest.bam')
+            the_bam = bam.FileReader(gzip.open(retest_bam))
+            # parse the new temporary file
+            new_bam = bam.FileReader(gzip.open(out_file_name))
+            self.assertEqual(the_bam.header,new_bam.header[:86])
+            try:
+                for align1,align2 in zip(new_bam,the_bam):
+                    self.assertEqual(align1,align2)
+            except StopIteration:
+                pass
+            new_bam.close()
+            the_bam.close()
+
+            with XenomapperOutputWriter(primary_raw_header = b'',
+                                        primary_raw_refs = b'',
+                                        secondary_raw_header = b'',
+                                        secondary_raw_refs = b'',
+                                        ) as xow:
+                for key in xow.keys():
+                    xow[key].write('foo')
 
     def test_get_mapping_state(self):
         very_negative = -2147483648
@@ -305,27 +347,6 @@ class test_main(unittest.TestCase):
 
 
     def test_cli_help(self):
-        def capture(command, *args, **kwargs):
-            err, sys.stderr = sys.stderr, io.StringIO()
-            out, sys.stdout = sys.stdout, io.StringIO()
-            try:
-                try:
-                    command(*args, **kwargs)
-                except docopt.DocoptExit:
-                    sys.stderr.seek(0)
-                    sys.stdout.seek(0)
-                    return sys.stderr.read(), sys.stdout.read()
-                except SystemExit:
-                    sys.stderr.seek(0)
-                    sys.stdout.seek(0)
-                    return sys.stderr.read(), sys.stdout.read()
-                sys.stderr.seek(0)
-                sys.stdout.seek(0)
-                return sys.stderr.read(),sys.stdout.read()
-            finally:
-                sys.stderr = err
-                sys.stdout = out
-
         out,err = capture(cli.main)
         # # Manually confirm correct output when hash changes
         # print(err)
@@ -338,32 +359,45 @@ class test_main(unittest.TestCase):
         #self.assertRaises(docopt.DocoptExit, cli.main, None)
 
     def test_cli(self):
+        output =  io.StringIO()
         prime = resource_filename(__name__,
                                   'data/paired_end_testdata_human.bam')
         second = resource_filename(__name__,
                                    'data/paired_end_testdata_mouse.bam')
         arguments = f"--primary {prime} --secondary {second}"
-        self.assertEqual(list(dict(cli.main(arguments)[1]).values()),
+        self.assertEqual(list(dict(cli.main(arguments,
+                                            output
+                                            )[1]).values()),
                          [134, 89, 7, 6, 1, 1])
         arguments = (f"--primary {prime} --secondary {second} "
                      "--max")
-        self.assertEqual(list(dict(cli.main(arguments)[1]).values()),
+        self.assertEqual(list(dict(cli.main(arguments,
+                                            output
+                                            )[1]).values()),
                          [134, 89, 7, 6, 1, 1])
         arguments = (f"--primary {prime} --secondary {second} "
                      "--min-score 190")
-        self.assertEqual(list(dict(cli.main(arguments)[1]).values()),
+        self.assertEqual(list(dict(cli.main(arguments,
+                                            output
+                                            )[1]).values()),
                          [124, 76, 4, 3, 0, 31])
         arguments = (f"--primary {prime} --secondary {second} "
                      "--conservative")
-        self.assertEqual(list(dict(cli.main(arguments)[1]).values()),
+        self.assertEqual(list(dict(cli.main(arguments,
+                                            output
+                                            )[1]).values()),
                          [133, 89, 7, 6, 2, 1])
         arguments = (f"--primary {prime} --secondary {second} "
                      "--cigar")
-        self.assertEqual(list(dict(cli.main(arguments)[1]).values()),
+        self.assertEqual(list(dict(cli.main(arguments,
+                                            output
+                                            )[1]).values()),
                          [141, 95, 0, 0, 1, 1])
         arguments = (f"--primary {prime} --secondary {second} "
                      "--zs")
-        self.assertEqual(list(dict(cli.main(arguments)[1]).values()),
+        self.assertEqual(list(dict(cli.main(arguments,
+                                            output
+                                            )[1]).values()),
                          [141, 95, 0, 0, 1, 1])
 
     def test_xenomap(self):
@@ -388,9 +422,11 @@ class test_main(unittest.TestCase):
             primary = AlignbatchFileReader(gzip.open(resource_stream(__name__,'data/minitest.sorted.bam')))
             secondary = AlignbatchFileReader(gzip.open(resource_stream(__name__,'data/paired_end_testdata_mouse.bam')))
             self.assertRaises(ValueError,xenomap,*(primary,secondary,xow,get_bamprimary_AS_XS))
+
             primary = AlignbatchFileReader(gzip.open(resource_stream(__name__,'data/paired_end_testdata_human.bam')))
             secondary = AlignbatchFileReader(gzip.open(resource_stream(__name__,'data/minitest.sorted.bam')))
             self.assertRaises(ValueError,xenomap,*(primary,secondary,xow,get_bamprimary_AS_XS))
+
             primary = AlignbatchFileReader(gzip.open(resource_stream(__name__,'data/paired_end_testdata_human.bam')))
             secondary = AlignbatchFileReader(gzip.open(resource_stream(__name__,'data/minitest.bam')))
             self.assertRaises(ValueError,xenomap,*(primary,secondary,xow,get_bamprimary_AS_XS))

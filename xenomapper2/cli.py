@@ -86,6 +86,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 import sys, gzip
 from docopt import docopt
+from typing import Counter, Tuple
 
 from pylazybam import bam
 from xenomapper2.xenomapper2 import *
@@ -102,7 +103,24 @@ __email__ = "wakefield@wehi.edu.au"
 __status__ = "Development/Beta"
 
 
-def main(arguments: str = None):
+def main(arguments: str = None,
+         output = sys.stderr) -> Tuple[Counter, Counter]:
+    """main function for orchestrating a xenomapper2 run
+
+    Parameters
+    ----------
+    arguments : str
+        a string of unix command line arguments - used for testing
+    output : TextIO
+        destination to print progress and results to - used for testing
+
+    Returns
+    -------
+    Counter
+        a counter of pair states
+    Counter
+        a counter of read states
+    """
     if not arguments:#pragma: no cover
         args = docopt(__doc__,
                       version= f"xenomapper2 v{__version__}")
@@ -149,7 +167,7 @@ def main(arguments: str = None):
     cmdline = " ".join([ f"{x}={args[x]}" for x in args.keys() \
                          if x not in  [".","--help"]])
 
-    print(f"\nxenomapper2 v{__version__} {cmdline}\n", file=sys.stderr)
+    print(f"\nxenomapper2 v{__version__} {cmdline}\n", file=output)
 
     xow = XenomapperOutputWriter(primary_header,
                                  primary_refs,
@@ -177,8 +195,12 @@ def main(arguments: str = None):
 
     writer.close()
 
-    output_summary(category_counts=pair_counts, title='Read Category Summary')
-    output_summary(category_counts=counts, title='Read Pair Category Summary')
+    output_summary(category_counts=pair_counts,
+                   title='Read Category Summary',
+                   outfile=output)
+    output_summary(category_counts=counts,
+                   title='Read Pair Category Summary',
+                   outfile=output)
     return pair_counts, counts
 
 
