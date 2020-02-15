@@ -1,0 +1,27 @@
+language: python
+matrix:
+  include:
+    - python: "3.6"
+    - python: "3.7"
+    - python: "3.8"
+    - python: "pypy3"
+      env: NO_MYPY=true
+    - python: "3.8-dev"
+    - python: "3.9-dev"  
+  allow_failures:
+    - python: "pypy3"
+      env: NO_MYPY=true
+    - python: "3.8-dev"
+    - python: "3.9-dev"  
+install:
+  - pip3 install .
+before_script:
+  - pip3 install coverage
+  - pip3 install coveralls
+  - if ! $NO_MYPY; then pip3 install mypy; fi
+script:
+  - coverage run --source xenomapper2.xenomapper2,xenomapper2.cli -m xenomapper2.tests.test_all
+  - if ! $NO_MYPY; then mypy -m xenomapper2 ; fi
+after_success:
+  - coverage report -m
+  - coveralls
