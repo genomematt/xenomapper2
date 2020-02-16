@@ -359,46 +359,48 @@ class test_main(unittest.TestCase):
         #self.assertRaises(docopt.DocoptExit, cli.main, None)
 
     def test_cli(self):
-        output =  io.StringIO()
-        prime = resource_filename(__name__,
-                                  'data/paired_end_testdata_human.bam')
-        second = resource_filename(__name__,
-                                   'data/paired_end_testdata_mouse.bam')
-        arguments = f"--primary {prime} --secondary {second}"
-        self.assertEqual(list(dict(cli.main(arguments,
-                                            output
-                                            )[1]).values()),
-                         [134, 89, 7, 6, 1, 1])
-        arguments = (f"--primary {prime} --secondary {second} "
-                     "--max")
-        self.assertEqual(list(dict(cli.main(arguments,
-                                            output
-                                            )[1]).values()),
-                         [134, 89, 7, 6, 1, 1])
-        arguments = (f"--primary {prime} --secondary {second} "
-                     "--min-score 190")
-        self.assertEqual(list(dict(cli.main(arguments,
-                                            output
-                                            )[1]).values()),
-                         [124, 76, 4, 3, 0, 31])
-        arguments = (f"--primary {prime} --secondary {second} "
-                     "--conservative")
-        self.assertEqual(list(dict(cli.main(arguments,
-                                            output
-                                            )[1]).values()),
-                         [133, 89, 7, 6, 2, 1])
-        arguments = (f"--primary {prime} --secondary {second} "
-                     "--cigar")
-        self.assertEqual(list(dict(cli.main(arguments,
-                                            output
-                                            )[1]).values()),
-                         [141, 95, 0, 0, 1, 1])
-        arguments = (f"--primary {prime} --secondary {second} "
-                     "--zs")
-        self.assertEqual(list(dict(cli.main(arguments,
-                                            output
-                                            )[1]).values()),
-                         [141, 95, 0, 0, 1, 1])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            output =  io.StringIO()
+            prime = resource_filename(__name__,
+                                      'data/paired_end_testdata_human.bam')
+            second = resource_filename(__name__,
+                                       'data/paired_end_testdata_mouse.bam')
+            arguments = f"--primary {prime} --secondary {second}"
+            self.assertEqual(list(dict(cli.main(arguments,
+                                                output
+                                                )[1]).values()),
+                             [134, 89, 7, 6, 1, 1])
+            arguments = (f"--primary {prime} --secondary {second} "
+                         "--max")
+            self.assertEqual(list(dict(cli.main(arguments,
+                                                output
+                                                )[1]).values()),
+                             [134, 89, 7, 6, 1, 1])
+            arguments = (f"--primary {prime} --secondary {second} "
+                         "--min-score 190")
+            self.assertEqual(list(dict(cli.main(arguments,
+                                                output
+                                                )[1]).values()),
+                             [124, 76, 4, 3, 0, 31])
+            arguments = (f"--primary {prime} --secondary {second} "
+                         "--conservative")
+            self.assertEqual(list(dict(cli.main(arguments,
+                                                output
+                                                )[1]).values()),
+                             [133, 89, 7, 6, 2, 1])
+            arguments = (f"--primary {prime} --secondary {second} "
+                         "--cigar")
+            self.assertEqual(list(dict(cli.main(arguments,
+                                                output
+                                                )[1]).values()),
+                             [141, 95, 0, 0, 1, 1])
+            arguments = (f"--primary {prime} --secondary {second} "
+                         "--zs")
+            self.assertEqual(list(dict(cli.main(arguments,
+                                                output
+                                                )[1]).values()),
+                             [141, 95, 0, 0, 1, 1])
 
     def test_xenomap(self):
         with warnings.catch_warnings():
@@ -409,7 +411,7 @@ class test_main(unittest.TestCase):
             xow = XenomapperOutputWriter(primary.raw_header,
                                          primary.raw_refs,
                                          secondary.raw_header,
-                                         secondary.raw_refs)
+                                         secondary.raw_refs,)
             output = xenomap(primary,secondary,xow,get_bamprimary_AS_XS)
             self.assertEqual(list(dict(output[1]).values()),
                              [134, 89, 7, 6, 1, 1])
