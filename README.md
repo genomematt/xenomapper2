@@ -111,18 +111,18 @@ Most of the time you will want to invoke:
 
     xenomapper2  --primary <primary.bam> --secondary <secondary.bam> --basename <prefix>
     
-This will produce six output files (eg prefix_primary_specific.bam) and print a summary to standard out.
+This will produce six output files (eg prefix_primary_specific.bam) and print a summary to standard error.
 
 Process substitution will allow the use of input SAM files
 
-    xenomapper2 --primary <(samtools view -bS input.bam)
+    xenomapper2 --primary <(samtools view -bS input.sam)
      
 A worked example of using xenomapper can be found in [example_usage.ipynb](example_usage.ipynb)
 
 Contributing to Xenomapper2
 =========================
-Xenomapper2 is licensed under the BSD three clause license.  You are free to fork this repository under the terms of that
- license.  If you have suggested changes please start by raising an issue in the issue tracker.  Pull requests are 
+Xenomapper2 is licensed under the BSD three clause license.  You are free to fork this repository under the terms of 
+that license.  If you have suggested changes please start by raising an issue in the issue tracker.  Pull requests are 
 welcome and will be included at the discretion of the author, but must have 100% test coverage.
 
 Bug reports should be made to the issue tracker.  Difficulty in understanding how to use the software is a documentation
