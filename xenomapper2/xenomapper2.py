@@ -533,7 +533,16 @@ class XenomapperOutputWriter():
                  compresslevel: int = 6,
                  ):
         #get only the 5th to 11th arguments to __init__
-        file_arguments = dict(list(locals().items())[5:11])
+        # This works python >=3.7 but not 3.6 as dict order issues
+        #file_arguments = dict(list(locals().items())[5:11])
+
+        file_arguments = {'primary_specific' : primary_specific,
+                          'primary_multi' : primary_multi,
+                          'secondary_specific' : secondary_specific,
+                          'secondary_multi' : secondary_multi,
+                          'unresolved' : unresolved,
+                          'unassigned' : unassigned,
+                          }
 
         if basename == None:
             self._fileobjects = {'primary_specific': DummyFile(),

@@ -6,9 +6,11 @@ setup(
     version='2.0a1',
     author='Matthew Wakefield',
     author_email='matthew.wakefield@unimelb.edu.au',
+    python_requires='>=3.6,<4'
     install_requires = [
       'setuptools >= 1.1.6',
       'pylazybam',
+      'docopt',
     ],
     packages=['xenomapper2',
               'xenomapper2.tests',
@@ -34,6 +36,9 @@ setup(
           'Programming Language :: Python :: 3.6',
           'Programming Language :: Python :: 3.7',
           'Programming Language :: Python :: 3.8',
+          'Programming Language :: Python :: Implementation :: CPython',
+          'Programming Language :: Python :: Implementation :: PyPy',
+          'Intended Audience :: Science/Research',
           'Topic :: Scientific/Engineering :: Bio-Informatics',
     ],
 
