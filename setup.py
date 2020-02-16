@@ -6,7 +6,7 @@ setup(
     version='2.0a1',
     author='Matthew Wakefield',
     author_email='matthew.wakefield@unimelb.edu.au',
-    python_requires='>=3.6,<4'
+    python_requires='>=3.6,<4',
     install_requires = [
       'setuptools >= 1.1.6',
       'pylazybam',
