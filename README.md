@@ -24,8 +24,13 @@ how the reads are handled internally.
 Support for SAM files has been removed, and BAM files are read and written using 
 [pylazybam](https://github.com/genomematt/pylazybam), a pure python BAM file parser with basic write support.
 
-Running Xenomapper2 results in the same calls for data containing only primary alignments, with the simplification that 
-paired end status is automatically detected.
+Running Xenomapper2 generally results in the same calls for data containing only primary alignments, with the 
+simplification that paired end status is automatically detected.
+
+Xenomapper2 improves handling of cases where the second read of a template is unmapped, and the mapped read is reported 
+first. Xenomapper 1.0 would interpret these cases as the first entry in the SAM file as being the forward read, 
+creating a mismatch in the comparison of forward and reverse between primary and secondary. By using flag status this 
+potential source of error is now eliminated.
 
 The major change in Xenomapper2 is treating all alignments from the same read as a group. This allows the new mode 
 `--max` that selects the maximum AS score from all alignments, and the maximum XS score that occurs with this AS score.
