@@ -24,6 +24,11 @@ how the reads are handled internally.
 Support for SAM files has been removed, and BAM files are read and written using 
 [pylazybam](https://github.com/genomematt/pylazybam), a pure python BAM file parser with basic write support.
 
+Xenomapper2 can be used with most common aligners including 
+[Bowtie2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml), 
+[HISAT2](https://ccb.jhu.edu/software/hisat2/), and 
+[BWA-MEM](https://github.com/lh3/bwa).
+
 Running Xenomapper2 generally results in the same calls for data containing only primary alignments, with the 
 simplification that paired end status is automatically detected.
 
@@ -39,7 +44,6 @@ This allows assignment based on high scoring secondary mappings.
 These feature greatly enhance support for BWA-MEM based pipelines including mapping to GRCh38 with alt contigs. This
 will be useful especially in the analysis of complex immune regions such as HLA in humanised mice and xenografts.
 
-SCHEMATIC STILL TO BE UPDATED TO REFLECT
 ![Schematic of Xenomapper Use](/schematic.jpg "Schematic of Xenomapper Use")
 
 Installation
@@ -134,10 +138,15 @@ Bug reports should be made to the issue tracker.  Difficulty in understanding ho
  bug, and should also be raised on the issue tracker and will be tagged `question` so your question and my response are 
 easily found by others.
 
-Xenomapper uses numpy style docstrings, python type annotations, Travis CI, coverage and coveralls. All code should be
+Xenomapper2 uses numpy style docstrings, python type annotations, Travis CI, coverage and coveralls. All code should be
 compatible with python versions >= 3.6 and contain only pure python code.
 
 License
 =======
 To ensure the least encumbrance to all users, including those in commercial environments Xenomapper2 is now licensed 
 under the BSD three clause license (rather than the GPL that was used for xenomapper 1.0)
+
+Acknowledgements
+================
+Justin Bedo, Alan Rubin and Tony Papenfuss provided helpful suggestions, early testing and code review.
+This work was supported by the Stafford Fox Medical Research Foundation

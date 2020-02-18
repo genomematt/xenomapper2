@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name='xenomapper2',
-    version='2.0a1',
+    version='2.0rc1',
     author='Matthew Wakefield',
     author_email='matthew.wakefield@unimelb.edu.au',
     python_requires='>=3.6,<4',
