@@ -88,7 +88,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 """
 
-import sys, gzip
+import sys, gzip, time
 from docopt import docopt
 from typing import Counter, Tuple
 
@@ -125,6 +125,9 @@ def main(arguments: str = None,
     Counter
         a counter of read states
     """
+
+    start_time = time.time()
+
     if not arguments:#pragma: no cover
         args = docopt(__doc__,
                       version= f"xenomapper2 v{__version__}")
@@ -205,7 +208,18 @@ def main(arguments: str = None,
     output_summary(category_counts=counts,
                    title='Read Pair Category Summary',
                    outfile=output)
-    return pair_counts, counts
+
+    end_time = time.time()
+
+    print(f'\n\nTotal templates assigned : {sum(pair_counts.values())} '
+          f'in {end_time-start_time:.2f}s\n',
+          file=output)
+
+    if arguments:
+        # return data if testing
+        return pair_counts, counts
+    else:
+        pass
 
 
 if __name__ == '__main__': #pragma: no cover
