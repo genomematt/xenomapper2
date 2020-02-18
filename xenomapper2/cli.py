@@ -186,7 +186,7 @@ def main(arguments: str = None,
                                  secondary_multi=args["--secondary-multi"],
                                  unassigned=args["--unassigned"],
                                  unresolved=args["--unresolved"],
-                                 basename=None,
+                                 basename=args["--basename"],
                                  cmdline=cmdline
                                  )
 
