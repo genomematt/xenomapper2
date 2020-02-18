@@ -121,7 +121,7 @@ class test_main(unittest.TestCase):
             tempd = TemporaryDirectory()
             xow = XenomapperOutputWriter(b"p", b"s", b"s", b"sr",
                                          basename=f'{tempd.name}/foo')
-            expected = [f'{tempd.name}/{f}' for f in ['foo_primary_specific',
+            expected = [f'{tempd.name}/{f}.bam' for f in ['foo_primary_specific',
                                                      'foo_primary_multi',
                                                      'foo_secondary_specific',
                                                      'foo_secondary_multi',

@@ -559,7 +559,7 @@ class XenomapperOutputWriter():
         else:
             self._fileobjects = {}
             for key in file_arguments:
-                self._fileobjects[key] = bam.FileWriter(f"{basename}_{key}",
+                self._fileobjects[key] = bam.FileWriter(f"{basename}_{key}.bam",
                                                     compresslevel=compresslevel)
 
         self._write_headers(primary_raw_header,
