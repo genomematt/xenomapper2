@@ -218,7 +218,7 @@ def main(arguments: str = None,
     if arguments:
         # return data if testing
         return pair_counts, counts
-    else:
+    else: #pragma: no cover
         pass
 
 
