@@ -1,6 +1,6 @@
 .ipynb_checkpoints/
-docs/_build/
-docs/_static/
+#docs/_build/
+#docs/_static/
 .coverage
 .coverage.*
 .Python
