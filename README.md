@@ -7,7 +7,8 @@
 [![PyPy 3.8](https://img.shields.io/badge/PyPy-3.8-brightgreen)](https://www.pypy.org)
 
 # Xenomapper2
-![logo](/logo.png "logo")
+![logo](/logo.png "logo" =200x200)
+
 A utility for splitting mixed origin NGS reads with secondary or alt mappings
 
 Xenomapper2
