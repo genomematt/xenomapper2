@@ -2,6 +2,7 @@
 ](https://travis-ci.com/genomematt/xenomapper2)
 [![Coverage Status](https://coveralls.io/repos/genomematt/xenomapper/badge.svg)
 ](https://coveralls.io/r/genomematt/xenomapper2)
+[![ReadTheDocs](https://readthedocs.org/projects/xenomapper2/badge/?version=latest)](https://xenomapper2.readthedocs.io/en/latest/xenomapper2.html#module-xenomapper2.xenomapper2)
 [![pypi](https://img.shields.io/pypi/v/xenomapper2.svg)](https://pypi.python.org/pypi/xenomapper2/)
 [![Python 3.6+](https://img.shields.io/badge/python-3.6+-blue.svg)](https://www.python.org/downloads/)
 [![PyPy 3.8](https://img.shields.io/badge/PyPy-3.8-brightgreen)](https://www.pypy.org)
