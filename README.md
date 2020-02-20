@@ -1,5 +1,5 @@
-[![Build Status](https://travis-ci.org/genomematt/xenomapper2.svg?branch=master)
-](https://travis-ci.org/genomematt/xenomapper2)
+[![Build Status](https://travis-ci.com/genomematt/xenomapper2.svg?branch=master)
+](https://travis-ci.com/genomematt/xenomapper2)
 [![Coverage Status](https://coveralls.io/repos/genomematt/xenomapper/badge.svg)
 ](https://coveralls.io/r/genomematt/xenomapper2)
 [![pypi](https://img.shields.io/pypi/v/xenomapper2.svg)](https://pypi.python.org/pypi/xenomapper2/)
