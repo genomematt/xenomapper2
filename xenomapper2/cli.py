@@ -111,12 +111,12 @@ def command_line_interface(arguments: str = None):  # pragma: no cover
     input_group = parser.add_argument_group(title='Input Files')
     input_group.add_argument('--primary',
                         type=str,
-                        required=True,
+                        default=None,
                         help='A BAM format file of primary species alignments \
                              Entries must be name sorted')
     input_group.add_argument('--secondary',
                         type=str,
-                        required=True,
+                        default=None,
                         help='A BAM format file of secondary species alignments \
                              Entries must be name sorted')
 
@@ -187,7 +187,15 @@ def command_line_interface(arguments: str = None):  # pragma: no cover
     else:
         args = parser.parse_args()
     if args.version:
-        print(f"\nxenomapper2 v{__version__}")
+        print(f"xenomapper2 v{__version__}")
+        sys.exit()
+    elif not args.primary or not args.secondary:
+        print('ERROR: You must provide both a primary and a secondary alignment'
+              ' in valid bam format\n'
+              f'Primary:   {args.primary}\n'
+              f'Secondary: {args.secondary}\n'
+              'see -h or --help for usage details\n',
+              file=sys.stderr)
         sys.exit()
     return args
 

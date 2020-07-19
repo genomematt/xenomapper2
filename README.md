@@ -75,45 +75,77 @@ Usage
 =====
 
     Usage:
-      xenomapper2 --primary=<file>  --secondary=<file>
-                  [ --primary-specific=<file> --primary-multi=<file>
-    .              --secondary-specific=<file> --secondary-multi=<file>
-    .              --unassigned=<file> --unresolved=<file>
-                  | --basename=<str> ]
-                  [ --min-score=<int> ]
-                  [ --zs | --cigar]
-                  [ --max ]
-                  [ --conservative ]
-      xenomapper2 --version
-      xenomapper2 [ -h | --help ]
+    xenomapper2 [-h] --primary PRIMARY --secondary SECONDARY
+                   [--primary_specific PRIMARY_SPECIFIC]
+                   [--secondary_specific SECONDARY_SPECIFIC]
+                   [--primary_multi PRIMARY_MULTI]
+                   [--secondary_multi SECONDARY_MULTI]
+                   [--unassigned UNASSIGNED] [--unresolved UNRESOLVED]
+                   [--basename BASENAME] [--conservative] [--max]
+                   [--min_score MIN_SCORE] [--cigar | --zs] [--version]
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      --version             print version information and exit
     
-    Options:
-      -h --help                  Show this screen.
-      --version                  Show version.
+    Input Files:
+      --primary PRIMARY     A BAM format file of primary species alignments
+                            Entries must be name sorted
+      --secondary SECONDARY
+                            A BAM format file of secondary species alignments
+                            Entries must be name sorted
     
-      Input files
-      --primary=<file>           A BAM format file of primary species alignments
-      --secondary=<file>         A BAM format file of secondary species alignments
+    Output Files:
+      --primary_specific PRIMARY_SPECIFIC
+                            name for BAM format output file for reads mapping to a
+                            specific location in the primary species
+      --secondary_specific SECONDARY_SPECIFIC
+                            name for BAM format output file for reads mapping to a
+                            specific location in the secondary species
+      --primary_multi PRIMARY_MULTI
+                            name for BAM format output file for reads multi
+                            mapping in the primary species
+      --secondary_multi SECONDARY_MULTI
+                            name for BAM format output file for reads multi
+                            mapping in the secondary species
+      --unassigned UNASSIGNED
+                            name for BAM format output file for unassigned (non-
+                            mapping) reads
+      --unresolved UNRESOLVED
+                            name for BAM format output file for unresolved (maps
+                            equally well in both species) reads
+      --basename BASENAME   prefix for creating all output files only valid if no
+                            other output options provided
     
-      Output options
-      --primary-specific=<file>  filename for primary specific unique alignments
-      --primary-multi=<file>     filename for primary specific multimap alignments
-      --secondary-specific=<file> filename for secondary specific unique alignments
-      --secondary-multi=<file>   filename for secondary specific multimap alignments
-      --unassigned=<file>        filename for unassigned alignments
-      --unresolved=<file>        filename for unresolved alignments
-      --basename=<str>           prefix for creating all other output files
-                                 only valid if no other output options provided
-    
-      Processing options
-      --min-score=<int>          minimum AS score required. Lower scores unassigned.
-                                 [ Default : None (implemented as -2^31) ]
-      --zs                       use ZS scores for spliced aligner (HISAT2)
-      --cigar                    use cigar scores to calculate AS score
-      --max                      use the maximum score for any alignment
-                                 [ Default : Use score of primary alignment ]
-      --conservative             require both ends of paired reads to support the
-                                 assignment
+    Processing options:
+      --conservative        conservatively allocate paired end reads with
+                            discordant category allocations. Only pairs that are
+                            both specific, or specific and multi will be allocated
+                            as specific. Pairs that are discordant for species
+                            will be deemed unresolved. Pairs where any read is
+                            unassigned will be deemed unassigned.
+      --max                 use the maximum score for any alignment [Default: Use
+                            score of primary alignment]
+      --min_score MIN_SCORE
+                            the minimum mapping score. Reads with scores less than
+                            or equal to min_score will be considered unassigned.
+                            Values should be chosen based on the mapping program
+                            and read length
+      --cigar               Use the cigar line and the NM tag to calculate a
+                            score. For aligners that do not support the AS tag. No
+                            determination of multimapping state will be done.
+                            Reads that are unique in one species and multimap in
+                            the other species may be misassigned as no score can
+                            be calculated in the multimapping species. Score is -6
+                            * mismatches + -5 * indel open + -3 * indel extend +
+                            -2 * softclip. Treatment of multimappers will vary
+                            with aligner. If multimappers are assigned a cigar
+                            line they will be treated as species specific,
+                            otherwise as unassigned.
+      --zs                  Use the value of the ZS tag in place of XS for
+                            determining the mapping score of the next best
+                            alignment. Used with HISAT as the XS:A tag is
+                            conventionally used for strand in spliced mappers.
 
 Note that unlike prior xenomapper versions there is no --pair option as forward
 and reverse reads are automatically extracted based on their flag. Files of
