@@ -59,9 +59,27 @@ __status__ = "Development/Beta"
 
 MIN32INT: int = -2147483648
 
+USAGE: str =  """
+xenomapper2 --primary PRIMARY --secondary SECONDARY
+                   [--primary_specific PRIMARY_SPECIFIC]
+                   [--secondary_specific SECONDARY_SPECIFIC]
+                   [--primary_multi PRIMARY_MULTI]
+                   [--secondary_multi SECONDARY_MULTI]
+                   [--unassigned UNASSIGNED]
+                   [--unresolved UNRESOLVED]
+                   [--basename BASENAME]
+                   [--conservative]
+                   [--max]
+                   [--min_score MIN_SCORE]
+                   [--cigar | --zs]
+
+xenomapper2 [ -h --help | --version]
+"""
+
 
 def command_line_interface(arguments: str = None):  # pragma: no cover
     parser = argparse.ArgumentParser(prog="xenomapper2",
+                        usage=USAGE,
                         formatter_class=argparse.RawDescriptionHelpFormatter,
                         description=textwrap.dedent("""\
                     ██╗  ██╗███████╗███╗   ██╗ ██████╗
