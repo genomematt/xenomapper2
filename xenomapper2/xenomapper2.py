@@ -37,7 +37,7 @@ __copyright__ = ("Copyright 2018-2020 Matthew Wakefield"
                  "The University of Melbourne")
 __credits__ = ["Matthew Wakefield",]
 __license__ = "BSD-3-Clause"
-__version__ = "2.0rc1"
+__version__ = "2.0rc2"
 __maintainer__ = "Matthew Wakefield"
 __email__ = "wakefield@wehi.edu.au"
 __status__ = "Development/Beta"
@@ -559,7 +559,12 @@ class XenomapperOutputWriter():
         else:
             self._fileobjects = {}
             for key in file_arguments:
-                self._fileobjects[key] = bam.FileWriter(f"{basename}_{key}.bam",
+                if file_arguments[key]:
+                    self._fileobjects[key] = bam.FileWriter(file_arguments[key],
+                                                    compresslevel=compresslevel)
+                else:
+                    self._fileobjects[key] = bam.FileWriter(
+                                                    f"{basename}_{key}.bam",
                                                     compresslevel=compresslevel)
 
         self._write_headers(primary_raw_header,

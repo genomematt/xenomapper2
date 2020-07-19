@@ -3,14 +3,13 @@ from setuptools import setup
 
 setup(
     name='xenomapper2',
-    version='2.0rc1',
+    version='2.0rc2',
     author='Matthew Wakefield',
     author_email='matthew.wakefield@unimelb.edu.au',
     python_requires='>=3.6,<4',
     install_requires = [
       'setuptools >= 1.1.6',
       'pylazybam',
-      'docopt',
     ],
     packages=['xenomapper2',
               'xenomapper2.tests',

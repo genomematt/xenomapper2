@@ -18,7 +18,7 @@ __copyright__ = ("Copyright 2011-2020 Matthew Wakefield"
                  "The University of Melbourne")
 __credits__ = ["Matthew Wakefield",]
 __license__ = "BSD-3-Clause"
-__version__ = "2.0a1"
+__version__ = "2.0rc2"
 __maintainer__ = "Matthew Wakefield"
 __email__ = "wakefield@wehi.edu.au"
 __status__ = "Development/Beta"
